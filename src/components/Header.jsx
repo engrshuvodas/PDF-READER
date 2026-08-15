@@ -13,7 +13,8 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
-  Languages
+  Languages,
+  Type
 } from 'lucide-react';
 import { SAMPLE_DOCUMENTS } from '../services/samplePdfs';
 
@@ -21,11 +22,13 @@ export default function Header({
   fileName,
   pageCount,
   currentPage,
+  isTextMode,
   zoom,
   onZoomIn,
   onZoomOut,
   onResetZoom,
   onUploadClick,
+  onOpenPasteText,
   onSelectSample,
   onOpenSettings,
   isDarkMode,
@@ -51,9 +54,13 @@ export default function Header({
 
         {fileName && (
           <div className="doc-info-badge" title={fileName}>
-            <FileText size={14} className="doc-icon" />
+            {isTextMode ? (
+              <Type size={14} className="doc-icon" />
+            ) : (
+              <FileText size={14} className="doc-icon" />
+            )}
             <span className="doc-name">{fileName}</span>
-            {pageCount > 0 && (
+            {pageCount > 0 && !isTextMode && (
               <span className="doc-pages">
                 {currentPage}/{pageCount}p
               </span>
@@ -62,23 +69,42 @@ export default function Header({
         )}
       </div>
 
-      {/* Center Controls: Upload, Samples & Zoom */}
+      {/* Center Controls: Upload, Paste Text, Samples & Zoom */}
       <div className="header-center">
-        <button className="btn btn-primary btn-compact" onClick={onUploadClick} title="Upload PDF">
-          <Upload size={15} />
-          <span className="hide-on-mobile">Upload PDF</span>
+        {/* Upload File Button */}
+        <button
+          type="button"
+          className="btn btn-primary btn-compact"
+          onClick={onUploadClick}
+          title="Upload PDF or Text File"
+        >
+          <Upload size={14} />
+          <span className="hide-on-mobile">Upload</span>
         </button>
 
+        {/* Paste Text Button */}
+        <button
+          type="button"
+          className="btn btn-secondary btn-compact"
+          onClick={onOpenPasteText}
+          title="Paste custom text (টেক্সট পেস্ট করুন)"
+        >
+          <Type size={14} className="text-primary" />
+          <span className="hide-on-mobile">Paste Text</span>
+        </button>
+
+        {/* Samples Dropdown */}
         <div className="dropdown-container">
           <button
+            type="button"
             className="btn btn-secondary btn-compact dropdown-trigger"
             onClick={() => setShowSamplesDropdown(!showSamplesDropdown)}
             onBlur={() => setTimeout(() => setShowSamplesDropdown(false), 250)}
             title="Try Demo Samples"
           >
-            <Sparkles size={15} className="text-accent" />
-            <span className="hide-on-mobile">Samples</span>
-            <ChevronDown size={13} className={`chevron ${showSamplesDropdown ? 'open' : ''}`} />
+            <Sparkles size={14} className="text-accent" />
+            <span className="hide-on-sm">Samples</span>
+            <ChevronDown size={12} className={`chevron ${showSamplesDropdown ? 'open' : ''}`} />
           </button>
 
           {showSamplesDropdown && (
@@ -87,6 +113,7 @@ export default function Header({
               {SAMPLE_DOCUMENTS.map((doc) => (
                 <button
                   key={doc.id}
+                  type="button"
                   className="dropdown-item"
                   onClick={() => {
                     setShowSamplesDropdown(false);
@@ -104,48 +131,53 @@ export default function Header({
           )}
         </div>
 
-        {/* Zoom Controls (visible when document loaded) */}
-        {fileName && (
+        {/* Zoom Controls (visible for PDF mode) */}
+        {fileName && !isTextMode && (
           <div className="zoom-controls hide-on-xs">
             <button
+              type="button"
               className="icon-btn zoom-btn"
               onClick={onZoomOut}
               disabled={zoom <= 0.5}
               title="Zoom Out"
               aria-label="Zoom Out"
             >
-              <ZoomOut size={14} />
+              <ZoomOut size={13} />
             </button>
             <span className="zoom-value" onClick={onResetZoom} title="Reset zoom">
               {Math.round(zoom * 100)}%
             </span>
             <button
+              type="button"
               className="icon-btn zoom-btn"
               onClick={onZoomIn}
               disabled={zoom >= 2.5}
               title="Zoom In"
               aria-label="Zoom In"
             >
-              <ZoomIn size={14} />
+              <ZoomIn size={13} />
             </button>
             <button
+              type="button"
               className="icon-btn zoom-btn hide-on-sm"
               onClick={onResetZoom}
               title="Fit Width"
               aria-label="Fit width"
             >
-              <Maximize2 size={13} />
+              <Maximize2 size={12} />
             </button>
           </div>
         )}
       </div>
 
-      {/* Right Controls: Settings, Compatibility & Theme */}
+      {/* Right Controls: Settings, Status & Theme */}
       <div className="header-right">
         {/* Browser compatibility status (Desktop & Tablet) */}
         {browserSupport && (
           <div
-            className={`browser-badge hide-on-sm ${browserSupport.hasPreciseBoundary ? 'supported' : 'warning'}`}
+            className={`browser-badge hide-on-sm ${
+              browserSupport.hasPreciseBoundary ? 'supported' : 'warning'
+            }`}
             title={
               browserSupport.hasPreciseBoundary
                 ? `${browserSupport.browserName}: Precise word sync active`
@@ -168,22 +200,24 @@ export default function Header({
 
         {/* Audio / Voice Settings Modal Trigger */}
         <button
+          type="button"
           className="icon-btn"
           onClick={onOpenSettings}
           title="Voice & Language Settings (বাংলা ও ইংরেজি)"
           aria-label="Settings"
         >
-          <Languages size={17} className="text-primary" />
+          <Languages size={16} className="text-primary" />
         </button>
 
         {/* Dark / Light Theme Toggle */}
         <button
+          type="button"
           className="icon-btn theme-toggle"
           onClick={onToggleTheme}
           title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label="Toggle theme"
         >
-          {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+          {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
         </button>
       </div>
     </header>

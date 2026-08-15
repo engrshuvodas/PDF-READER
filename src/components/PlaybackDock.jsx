@@ -52,11 +52,10 @@ export default function PlaybackDock({
 
   const currentSectionNum = currentSectionIndex >= 0 ? currentSectionIndex + 1 : 1;
   const progressPercent = totalSections > 0 ? (currentSectionNum / totalSections) * 100 : 0;
-
   const isCurrentBengali = activeLanguage && activeLanguage.startsWith('bn');
 
   return (
-    <div className={`playback-dock-container ${isPlaying ? 'dock-active' : ''}`}>
+    <nav className={`playback-dock-container ${isPlaying ? 'dock-active' : ''}`} aria-label="Playback Controller">
       {/* Mini Progress Bar at Top of Dock */}
       <div className="dock-progress-track">
         <div
@@ -66,8 +65,29 @@ export default function PlaybackDock({
       </div>
 
       <div className="playback-dock-content">
-        {/* Left: Section Info, Language Badge & Word Ticker */}
-        <div className="dock-left">
+        {/* Mobile Info Bar Row (Visible on <= 640px) */}
+        <div className="dock-mobile-info-row">
+          <div className="dock-mobile-left">
+            <span className="dock-sec-label">
+              Sec {currentSectionNum}/{totalSections || 1}
+            </span>
+            {currentSection && (
+              <span className="dock-page-tag">P.{currentSection.pageNumber}</span>
+            )}
+            <span className={`dock-lang-tag ${isCurrentBengali ? 'lang-bn' : 'lang-en'}`}>
+              {isCurrentBengali ? '🇧🇩 বাংলা' : '🌐 EN'}
+            </span>
+          </div>
+
+          <div className="dock-mobile-right">
+            {activeWord && (
+              <span className="current-word-highlight">"{activeWord.text}"</span>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Left Info Column (Visible on > 640px) */}
+        <div className="dock-left hide-on-mobile">
           <div className="dock-soundwave-container">
             {isPlaying ? (
               <div className="soundwave-bars">
@@ -78,7 +98,7 @@ export default function PlaybackDock({
                 <span className="wave-bar bar-5"></span>
               </div>
             ) : (
-              <Volume2 size={20} className="text-muted" />
+              <Volume2 size={18} className="text-muted" />
             )}
           </div>
 
@@ -90,7 +110,6 @@ export default function PlaybackDock({
               {currentSection && (
                 <span className="dock-page-tag">Page {currentSection.pageNumber}</span>
               )}
-              {/* Language Active Indicator Badge */}
               <span className={`dock-lang-tag ${isCurrentBengali ? 'lang-bn' : 'lang-en'}`}>
                 {isCurrentBengali ? '🇧🇩 বাংলা' : '🌐 English'}
               </span>
@@ -100,7 +119,7 @@ export default function PlaybackDock({
                 <span className="current-word-highlight">"{activeWord.text}"</span>
               ) : (
                 <span className="current-word-idle">
-                  {isPlaying ? 'Reading...' : isPaused ? 'Paused' : 'Ready to read'}
+                  {isPlaying ? 'Reading...' : isPaused ? 'Paused' : 'Ready'}
                 </span>
               )}
             </div>
@@ -111,17 +130,19 @@ export default function PlaybackDock({
         <div className="dock-center">
           {/* Previous Section */}
           <button
+            type="button"
             className="dock-ctrl-btn"
             onClick={onPrev}
             disabled={currentSectionIndex <= 0}
             title="Previous Section"
             aria-label="Previous Section"
           >
-            <SkipBack size={18} />
+            <SkipBack size={16} />
           </button>
 
           {/* Main Play/Pause Button */}
           <button
+            type="button"
             className={`dock-play-btn ${isPlaying ? 'playing' : ''}`}
             onClick={() => {
               if (isPlaying) {
@@ -135,29 +156,31 @@ export default function PlaybackDock({
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause size={22} /> : <Play size={22} className="play-icon-offset" />}
+            {isPlaying ? <Pause size={20} /> : <Play size={20} className="play-icon-offset" />}
           </button>
 
           {/* Stop Button */}
           <button
+            type="button"
             className="dock-ctrl-btn"
             onClick={onStop}
             disabled={isIdle}
             title="Stop Playback (Esc)"
             aria-label="Stop"
           >
-            <Square size={17} />
+            <Square size={15} />
           </button>
 
           {/* Next Section */}
           <button
+            type="button"
             className="dock-ctrl-btn"
             onClick={onNext}
             disabled={currentSectionIndex >= totalSections - 1}
             title="Next Section"
             aria-label="Next Section"
           >
-            <SkipForward size={18} />
+            <SkipForward size={16} />
           </button>
         </div>
 
@@ -166,21 +189,24 @@ export default function PlaybackDock({
           {/* Speed Preset Selector */}
           <div className="speed-selector-wrapper">
             <button
+              type="button"
               className="dock-chip-btn"
               onClick={() => setShowSpeedDropdown(!showSpeedDropdown)}
               onBlur={() => setTimeout(() => setShowSpeedDropdown(false), 200)}
               title="Playback Speed"
+              aria-label="Playback Speed"
             >
               <span>{rate}x</span>
-              <ChevronUp size={12} className={`chevron ${showSpeedDropdown ? 'open' : ''}`} />
+              <ChevronUp size={11} className={`chevron ${showSpeedDropdown ? 'open' : ''}`} />
             </button>
 
             {showSpeedDropdown && (
               <div className="speed-dropdown-menu">
-                <div className="dropdown-label">Playback Speed</div>
+                <div className="dropdown-label">Speed</div>
                 {SPEED_PRESETS.map((s) => (
                   <button
                     key={s}
+                    type="button"
                     className={`speed-option ${rate === s ? 'active' : ''}`}
                     onClick={() => {
                       onChangeRate(s);
@@ -194,9 +220,10 @@ export default function PlaybackDock({
             )}
           </div>
 
-          {/* Auto Language / Voice Quick Button */}
-          <div className="voice-selector-wrapper">
+          {/* Voice / Auto Language Quick Button */}
+          <div className="voice-selector-wrapper hide-on-xs">
             <button
+              type="button"
               className="dock-voice-btn"
               onClick={onOpenSettings}
               title={
@@ -206,13 +233,14 @@ export default function PlaybackDock({
                   ? selectedVoice.name
                   : 'Select Voice'
               }
+              aria-label="Voice & Language Settings"
             >
-              <Globe size={14} className="text-primary" />
+              <Globe size={13} className="text-primary" />
               <span className="voice-name-trim">
                 {autoLanguageDetect
-                  ? 'Auto Lang (EN/বাং)'
+                  ? 'Auto (বাং/EN)'
                   : selectedVoice
-                  ? selectedVoice.name.replace(/(Google|Microsoft|Apple|Desktop)\s*/g, '').slice(0, 12)
+                  ? selectedVoice.name.replace(/(Google|Microsoft|Apple|Desktop)\s*/g, '').slice(0, 10)
                   : 'Voice'}
               </span>
             </button>
@@ -220,28 +248,31 @@ export default function PlaybackDock({
 
           {/* Continuous Auto-Read Next Toggle */}
           <button
+            type="button"
             className={`dock-toggle-btn ${autoPlayNext ? 'active' : ''}`}
             onClick={onToggleAutoPlay}
             title={
               autoPlayNext
-                ? 'Continuous Reading: ON (Auto-advances to next section)'
+                ? 'Continuous Reading: ON'
                 : 'Continuous Reading: OFF'
             }
+            aria-label="Continuous Reading Toggle"
           >
-            <Repeat size={16} />
+            <Repeat size={15} />
           </button>
 
           {/* Settings Modal Trigger */}
           <button
+            type="button"
             className="dock-ctrl-btn"
             onClick={onOpenSettings}
-            title="Fine-tune Bengali & English voices and audio"
+            title="Fine-tune audio and voices"
             aria-label="Settings"
           >
-            <Sliders size={17} />
+            <Sliders size={15} />
           </button>
         </div>
       </div>
-    </div>
+    </nav>
   );
 }

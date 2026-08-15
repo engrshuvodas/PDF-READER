@@ -3,9 +3,12 @@ import confetti from 'canvas-confetti';
 import Header from './components/Header';
 import UploadZone from './components/UploadZone';
 import PdfViewer from './components/PdfViewer';
+import TextViewer from './components/TextViewer';
 import PlaybackDock from './components/PlaybackDock';
 import VoiceSettingsModal from './components/VoiceSettingsModal';
+import PasteTextModal from './components/PasteTextModal';
 import { loadPdfDocument, extractDocumentStructure } from './services/pdfService';
+import { parseRawTextToDocument } from './services/textParserService';
 import { SAMPLE_DOCUMENTS } from './services/samplePdfs';
 import { useTTS } from './hooks/useTTS';
 
@@ -14,7 +17,7 @@ export default function App() {
   const [fileName, setFileName] = useState('');
   const [documentStructure, setDocumentStructure] = useState(null);
 
-  // Dynamic initial zoom calculated based on screen width
+  // Dynamic initial zoom
   const [zoom, setZoom] = useState(() => {
     if (typeof window !== 'undefined') {
       const w = window.innerWidth;
@@ -31,6 +34,7 @@ export default function App() {
 
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPasteTextOpen, setIsPasteTextOpen] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
 
   const headerFileInputRef = useRef(null);
@@ -101,7 +105,7 @@ export default function App() {
   const computeFitZoom = useCallback(() => {
     if (typeof window === 'undefined') return 1.15;
     const screenWidth = window.innerWidth;
-    const targetDocWidth = 595.28; // Standard A4 points
+    const targetDocWidth = 595.28;
     const availableWidth = Math.min(screenWidth - 48, 860);
     const fitScale = Math.max(0.5, Math.min(2.0, (availableWidth / targetDocWidth) * 0.95));
     return Math.round(fitScale * 100) / 100;
@@ -122,8 +126,6 @@ export default function App() {
         setFileName(name);
         setDocumentStructure(structure);
         setCurrentPage(1);
-
-        // Adjust zoom to best fit screen automatically
         setZoom(computeFitZoom());
 
         const allSections = structure.pages.flatMap((p) => p.sections);
@@ -139,9 +141,51 @@ export default function App() {
     [stop, setDocumentSections, computeFitZoom]
   );
 
+  // Load Custom Raw Text
+  const handleLoadText = useCallback(
+    (rawText, title = 'Custom Text Document') => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        stop();
+
+        const structure = parseRawTextToDocument(rawText, title);
+
+        setPdfDoc(null); // Clear PDF proxy for text mode
+        setFileName(title);
+        setDocumentStructure(structure);
+        setCurrentPage(1);
+
+        const allSections = structure.pages[0].sections;
+        setDocumentSections(allSections);
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Failed to parse text:', err);
+        setError(err.message || 'Failed to parse text document.');
+        setIsLoading(false);
+      }
+    },
+    [stop, setDocumentSections]
+  );
+
+  // File select handler (supports .pdf, .txt, .md)
   const handleFileSelect = (file) => {
     if (!file) return;
-    handleLoadPdf(file, file.name);
+    const lowerName = file.name.toLowerCase();
+
+    if (lowerName.endsWith('.txt') || lowerName.endsWith('.md')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result;
+        if (typeof text === 'string') {
+          handleLoadText(text, file.name.replace(/\.[^/.]+$/, ''));
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      handleLoadPdf(file, file.name);
+    }
   };
 
   const handleSelectSample = (sampleDoc) => {
@@ -187,6 +231,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlayPause, stop, nextSection, prevSection]);
 
+  const isTextMode = documentStructure?.isTextMode || false;
   const allSections = documentStructure
     ? documentStructure.pages.flatMap((p) => p.sections)
     : [];
@@ -194,26 +239,31 @@ export default function App() {
     ? allSections.findIndex((s) => s.id === currentSection.id)
     : -1;
 
+  const hasDocumentLoaded = !!documentStructure;
+
   return (
     <div className={`app-root ${isDarkMode ? 'dark-theme' : 'light-theme'}`}>
+      {/* Hidden File Picker */}
       <input
         type="file"
         ref={headerFileInputRef}
         onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,.txt,.text,.md"
         style={{ display: 'none' }}
       />
 
       {/* Navigation Header */}
       <Header
         fileName={fileName}
-        pageCount={documentStructure?.numPages || 0}
+        pageCount={documentStructure?.numPages || 1}
         currentPage={currentPage}
+        isTextMode={isTextMode}
         zoom={zoom}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetZoom={handleResetZoom}
         onUploadClick={() => headerFileInputRef.current?.click()}
+        onOpenPasteText={() => setIsPasteTextOpen(true)}
         onSelectSample={handleSelectSample}
         onOpenSettings={() => setIsSettingsOpen(true)}
         isDarkMode={isDarkMode}
@@ -224,12 +274,27 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="app-main-content">
-        {!pdfDoc ? (
+        {!hasDocumentLoaded ? (
           <UploadZone
             onFileSelect={handleFileSelect}
             onSelectSample={handleSelectSample}
+            onOpenPasteText={() => setIsPasteTextOpen(true)}
             isLoading={isLoading}
             error={error}
+          />
+        ) : isTextMode ? (
+          <TextViewer
+            documentStructure={documentStructure}
+            activeSection={currentSection}
+            activeWord={activeWord}
+            playbackState={playbackState}
+            highlightColor={highlightColor}
+            autoScroll={autoScroll}
+            onPlaySection={playSection}
+            onPause={pause}
+            onResume={resume}
+            onWordClick={handleWordClick}
+            onEditText={() => setIsPasteTextOpen(true)}
           />
         ) : (
           <PdfViewer
@@ -251,7 +316,7 @@ export default function App() {
       </main>
 
       {/* Floating Bottom Playback Dock */}
-      {pdfDoc && (
+      {hasDocumentLoaded && (
         <PlaybackDock
           currentSection={currentSection}
           totalSections={allSections.length}
@@ -282,6 +347,14 @@ export default function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
       )}
+
+      {/* Paste & Type Custom Text Modal */}
+      <PasteTextModal
+        isOpen={isPasteTextOpen}
+        onClose={() => setIsPasteTextOpen(false)}
+        onSubmitText={handleLoadText}
+        initialText={isTextMode ? documentStructure?.rawText || '' : ''}
+      />
 
       {/* Voice & Language Settings Modal */}
       <VoiceSettingsModal
