@@ -1,0 +1,137 @@
+# Implementation Plan - PDF Voice Reader with Real-Time Word Highlighting
+
+Build a client-side React + Vite web application (**"PDF Voice Reader"**) that enables users to upload PDF documents, detect logical sections/paragraphs with inline play buttons, and listen to the text read aloud via the Web Speech API with real-time, synchronized word-by-word karaoke-style highlighting on the rendered PDF.
+
+## User Review Required
+
+> [!NOTE]
+> All processing (PDF parsing, text extraction, TTS speech synthesis, bounding box mapping) is 100% client-side with zero external API keys or server costs.
+
+> [!TIP]
+> Google Chrome and Microsoft Edge provide the most accurate `SpeechSynthesisUtterance.onboundary` event firing. A browser compatibility status banner is included in the UI to notify users when running on browsers with partial boundary support (like Firefox/Safari).
+
+## Proposed Architecture & Workflow
+
+```mermaid
+flowchart TD
+    A[User uploads PDF or chooses Sample] --> B[PDF.js Worker Loads & Renders Canvas]
+    B --> C[Extract TextContent per Page]
+    C --> D[Coordinate Normalizer & Section Detector]
+    D --> E[Structured Section & Word Model with Bounding Boxes]
+    E --> F[Render PDF Pages + Interactive Section Overlays]
+    F --> G[User clicks Section 🔊 or Global Play]
+    G --> H[Web Speech API SpeechSynthesisUtterance]
+    H -->|onboundary charIndex| I[Word Boundary Resolver]
+    I --> J[Karaoke Word Highlight Overlay & Smooth Auto-Scroll]
+    H -->|onend| K[Auto-advance to Next Section]
+```
+
+## Key Technical Components
+
+1. **Vite + React Setup**:
+   - Modern, responsive application structure with Lucide React icons.
+   - Clean dark/light modern glassmorphic theme with customizable typography and animations.
+
+2. **PDF.js Core Integration (`pdfjs-dist`)**:
+   - Web Worker configuration for high-performance non-blocking PDF decoding.
+   - Multi-page rendering with dynamic zoom (`50%` to `200%`, Fit Width, Fit Page).
+   - Extraction of text items via `page.getTextContent({ includeMarkedContent: true })`.
+
+3. **Section Detection & Word Bounding Box Engine**:
+   - Transforms PDF text items into lines and paragraphs using vertical/horizontal spacing heuristics.
+   - Computes precise viewport/normalized bounding boxes `[x, y, width, height]` for each word.
+   - Builds continuous character index mappings for each paragraph/section so that `SpeechSynthesisUtterance` `charIndex` matches the exact word.
+
+4. **Speech Synthesis Controller (`useTTS` hook)**:
+   - Manages playback states: `idle`, `playing`, `paused`.
+   - Controls: Play, Pause, Resume, Stop, Next Section, Previous Section.
+   - Settings: Voice selector (English default + all installed system voices), Speed rate (`0.5x` - `2.0x`), Pitch (`0.5` - `1.5`), Auto-read next section toggle.
+   - Handles browser quirks: Chrome garbage collection keep-alive on long utterances, clean pause/resume lifecycle.
+
+5. **Real-time Karaoke Word Highlighting**:
+   - Bounding box highlight layer rendered over each page.
+   - Active word receives a glowing, smooth animated highlight with customizable color scheme (e.g., golden amber / neon azure).
+   - Current reading section receives a subtle outline / backdrop indicator.
+   - Automatic smooth scrolling to keep the currently spoken word centered in view.
+
+6. **Interactive UI & Controls**:
+   - **Header Bar**: File Upload (Drag & drop / Browse), Sample PDFs picker, Zoom controls, Page navigator, Theme toggle.
+   - **Floating Playback Dock**: Section scrubber, Play/Pause/Stop, Prev/Next section, Rate & Pitch sliders, Voice dropdown, Real-time animated voice visualizer waveform.
+   - **PDF Document Area**: Multi-page view with section markers, inline 🔊 play buttons on each section margin, clickable words (click any word to start reading from that exact word!).
+   - **Empty / Scanned PDF fallback**: Helpful notice when a page contains only scanned images or lacks extractable text.
+
+---
+
+## Proposed Changes
+
+### Configuration & Dependencies
+#### [NEW] `package.json`
+- React 18 / 19, Vite, `pdfjs-dist`, `lucide-react`, `clsx`, `canvas-confetti`.
+
+#### [NEW] `vite.config.js`
+- Standard React Vite configuration with worker asset handling.
+
+#### [NEW] `index.html`
+- SEO meta tags, Google Fonts (Outfit & Inter), app title "PDF Voice Reader".
+
+---
+
+### Source Code
+
+#### [NEW] `src/types/pdf.ts`
+- TypeScript/JSDoc types for `PdfDocumentInfo`, `PdfPageInfo`, `Section`, `WordInfo`, `PlaybackState`, `TTSVoice`.
+
+#### [NEW] `src/services/pdfService.ts`
+- PDF loading via `pdfjs-dist`.
+- Page rendering to canvas.
+- Text content extraction, paragraph/section grouping, and word bounding box calculation.
+
+#### [NEW] `src/services/samplePdfs.ts`
+- Built-in sample PDF documents (e.g. "The Art of Reading Aloud", "Tech & Science Brief") for instant 1-click testing.
+
+#### [NEW] `src/hooks/useTTS.ts`
+- Complete Web Speech API lifecycle management (`SpeechSynthesisUtterance`).
+- Accurate `onboundary` tracking, voice listing, rate/pitch adjustments, auto-continuation.
+
+#### [NEW] `src/components/Header.jsx`
+- App branding, file upload button, sample document dropdown, zoom controls, browser compatibility indicator.
+
+#### [NEW] `src/components/PdfViewer.jsx`
+- Multi-page virtualized/stacked viewer.
+- Page canvas renderer + section overlay + word highlight overlay + inline section play buttons.
+
+#### [NEW] `src/components/PlaybackDock.jsx`
+- Premium floating player bar with play/pause/stop, progress, speed slider, voice selector, and soundwave animation.
+
+#### [NEW] `src/components/UploadZone.jsx`
+- Drag-and-drop file upload target with file picker and quick sample document buttons.
+
+#### [NEW] `src/components/VoiceSettingsModal.jsx`
+- Modal/popover for voice selection, pitch, rate, auto-scroll toggle, and highlight color customization.
+
+#### [NEW] `src/App.jsx` & `src/App.css` / `src/index.css`
+- Main state coordination, theme styling, glassmorphism, responsive layout, animations.
+
+---
+
+## Verification Plan
+
+### Automated / Build Verification
+- `npm.cmd run build` to verify clean compilation without TypeScript/Vite bundling errors.
+
+### Functional Verification
+1. **Upload & Rendering**:
+   - Test drag-and-drop of PDF file as well as file dialog selection.
+   - Verify multi-page PDF rendering with correct aspect ratio and crisp canvas resolution.
+2. **Text & Section Extraction**:
+   - Verify logical section grouping (paragraphs).
+   - Check that inline 🔊 play buttons appear alongside each paragraph/section.
+3. **TTS & Boundary Highlighting**:
+   - Click play on a section: speech begins immediately.
+   - Verify active word highlights dynamically in real-time in sync with the audio.
+   - Test pause, resume, and stop buttons.
+   - Test voice switching, speed rate adjustments (`0.75x`, `1.0x`, `1.5x`, `2.0x`).
+   - Test clicking an arbitrary word in a section to start speech from that word.
+4. **Edge Cases**:
+   - Scanned or empty text page notification.
+   - Multi-page scrolling when playback moves across pages.
