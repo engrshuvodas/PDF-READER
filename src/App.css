@@ -906,6 +906,54 @@
   border-radius: 4px;
 }
 
+.dock-lang-tag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dock-lang-tag.lang-bn {
+  background: rgba(16, 185, 129, 0.18);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.dock-lang-tag.lang-en {
+  background: rgba(99, 102, 241, 0.18);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.settings-card-highlight {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.voice-select-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lang-flag {
+  font-size: 1rem;
+}
+
+.flex-center {
+  display: inline-flex;
+  align-items: center;
+}
+
+.gap-6 {
+  gap: 6px;
+}
+
 .dock-word-preview {
   font-size: 0.75rem;
   color: var(--text-muted);

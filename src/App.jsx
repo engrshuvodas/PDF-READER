@@ -22,10 +22,9 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
 
-  // Hidden file input for header upload button
   const headerFileInputRef = useRef(null);
 
-  // Trigger celebration confetti
+  // Celebration confetti
   const triggerConfetti = useCallback(() => {
     try {
       confetti({
@@ -36,11 +35,18 @@ export default function App() {
     } catch (e) {}
   }, []);
 
-  // TTS Hook
+  // Multi-Lingual TTS Hook
   const {
     voices,
     selectedVoiceURI,
     setSelectedVoiceURI,
+    preferredBanglaVoiceURI,
+    setPreferredBanglaVoiceURI,
+    preferredEnglishVoiceURI,
+    setPreferredEnglishVoiceURI,
+    autoLanguageDetect,
+    setAutoLanguageDetect,
+    activeLanguage,
     rate,
     setRate,
     pitch,
@@ -96,7 +102,6 @@ export default function App() {
         setDocumentStructure(structure);
         setCurrentPage(1);
 
-        // Gather all sections across pages for global navigation
         const allSections = structure.pages.flatMap((p) => p.sections);
         setDocumentSections(allSections);
 
@@ -110,29 +115,25 @@ export default function App() {
     [stop, setDocumentSections]
   );
 
-  // File picker handler
   const handleFileSelect = (file) => {
     if (!file) return;
     handleLoadPdf(file, file.name);
   };
 
-  // Sample PDF select handler
   const handleSelectSample = (sampleDoc) => {
     const blob = sampleDoc.getBlob();
     handleLoadPdf(blob, `${sampleDoc.name}.pdf`);
   };
 
-  // Zoom handlers
   const handleZoomIn = () => setZoom((z) => Math.min(2.5, Math.round((z + 0.15) * 100) / 100));
   const handleZoomOut = () => setZoom((z) => Math.max(0.6, Math.round((z - 0.15) * 100) / 100));
   const handleResetZoom = () => setZoom(1.15);
 
-  // Word click handler: starts speech from clicked word
   const handleWordClick = (section, wordIndex) => {
     playSection(section, wordIndex);
   };
 
-  // Keyboard Shortcuts (Space for Play/Pause, Esc for Stop, Arrows for next/prev)
+  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (
@@ -162,7 +163,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlayPause, stop, nextSection, prevSection]);
 
-  // Total sections and current section index
   const allSections = documentStructure
     ? documentStructure.pages.flatMap((p) => p.sections)
     : [];
@@ -172,7 +172,6 @@ export default function App() {
 
   return (
     <div className={`app-root ${isDarkMode ? 'dark-theme' : 'light-theme'}`}>
-      {/* Hidden File Input for Header upload button */}
       <input
         type="file"
         ref={headerFileInputRef}
@@ -234,6 +233,8 @@ export default function App() {
           totalSections={allSections.length}
           currentSectionIndex={currentSectionIndex}
           activeWord={activeWord}
+          activeLanguage={activeLanguage}
+          autoLanguageDetect={autoLanguageDetect}
           playbackState={playbackState}
           onPlay={() => {
             if (currentSection) {
@@ -258,13 +259,19 @@ export default function App() {
         />
       )}
 
-      {/* Voice & Playback Fine-Tuning Modal */}
+      {/* Voice & Language Settings Modal */}
       <VoiceSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         voices={voices}
         selectedVoiceURI={selectedVoiceURI}
         onSelectVoice={setSelectedVoiceURI}
+        preferredBanglaVoiceURI={preferredBanglaVoiceURI}
+        onSelectBanglaVoice={setPreferredBanglaVoiceURI}
+        preferredEnglishVoiceURI={preferredEnglishVoiceURI}
+        onSelectEnglishVoice={setPreferredEnglishVoiceURI}
+        autoLanguageDetect={autoLanguageDetect}
+        onToggleAutoLanguageDetect={() => setAutoLanguageDetect(!autoLanguageDetect)}
         rate={rate}
         onChangeRate={setRate}
         pitch={pitch}

@@ -3,12 +3,13 @@ import {
   X,
   Volume2,
   Sliders,
-  Sparkles,
   Play,
   RotateCcw,
   Palette,
   Eye,
-  Check
+  Check,
+  Globe,
+  Languages
 } from 'lucide-react';
 
 const HIGHLIGHT_THEMES = [
@@ -24,6 +25,12 @@ export default function VoiceSettingsModal({
   voices,
   selectedVoiceURI,
   onSelectVoice,
+  preferredBanglaVoiceURI,
+  onSelectBanglaVoice,
+  preferredEnglishVoiceURI,
+  onSelectEnglishVoice,
+  autoLanguageDetect,
+  onToggleAutoLanguageDetect,
   rate,
   onChangeRate,
   pitch,
@@ -37,26 +44,52 @@ export default function VoiceSettingsModal({
   autoPlayNext,
   onToggleAutoPlay
 }) {
-  const [filterLang, setFilterLang] = useState('en');
+  const [filterLang, setFilterLang] = useState('bn');
   const [previewSpeaking, setPreviewSpeaking] = useState(false);
 
   if (!isOpen) return null;
 
+  const banglaVoices = voices.filter(
+    (v) =>
+      v.lang.toLowerCase().startsWith('bn') ||
+      v.name.toLowerCase().includes('bangla') ||
+      v.name.toLowerCase().includes('bengali') ||
+      v.name.includes('বাংলা')
+  );
+
+  const englishVoices = voices.filter((v) => v.lang.startsWith('en'));
+
   const filteredVoices = voices.filter((v) => {
+    if (filterLang === 'bn') {
+      return (
+        v.lang.toLowerCase().startsWith('bn') ||
+        v.name.toLowerCase().includes('bangla') ||
+        v.name.toLowerCase().includes('bengali') ||
+        v.name.includes('বাংলা')
+      );
+    }
     if (filterLang === 'en') return v.lang.startsWith('en');
-    if (filterLang === 'all') return true;
-    return v.lang.startsWith(filterLang);
+    return true;
   });
 
-  const handleTestVoice = () => {
+  const handleTestVoice = (type = 'en') => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(
-      'Hello! This is how text will sound with real-time word highlighting.'
-    );
-    const voiceObj = voices.find((v) => v.voiceURI === selectedVoiceURI);
+    let phrase = 'Hello! This is how English text will sound.';
+    let voiceURI = preferredEnglishVoiceURI || selectedVoiceURI;
+    let lang = 'en-US';
+
+    if (type === 'bn') {
+      phrase = 'নমস্কার! এটি বাংলা ভয়েস রিডারের একটি নমুনা অডিও।';
+      voiceURI = preferredBanglaVoiceURI;
+      lang = 'bn-BD';
+    }
+
+    const utterance = new SpeechSynthesisUtterance(phrase);
+    const voiceObj = voices.find((v) => v.voiceURI === voiceURI);
     if (voiceObj) utterance.voice = voiceObj;
+    utterance.lang = lang;
     utterance.rate = rate;
     utterance.pitch = pitch;
     utterance.volume = volume;
@@ -74,8 +107,8 @@ export default function VoiceSettingsModal({
         {/* Modal Header */}
         <div className="modal-header">
           <div className="modal-title-group">
-            <Sliders size={20} className="text-primary" />
-            <h3 className="modal-title">Voice & Playback Settings</h3>
+            <Languages size={22} className="text-primary" />
+            <h3 className="modal-title">Language & Voice Settings (বাংলা ও ইংরেজি)</h3>
           </div>
           <button className="icon-btn modal-close-btn" onClick={onClose} aria-label="Close">
             <X size={18} />
@@ -84,60 +117,156 @@ export default function VoiceSettingsModal({
 
         {/* Modal Body */}
         <div className="modal-body">
-          {/* Section: Voice Selection */}
-          <div className="settings-group">
-            <div className="settings-group-header">
-              <label className="settings-label">
-                <Volume2 size={16} />
-                <span>Text-to-Speech Voice</span>
-              </label>
-              <div className="lang-filter-tabs">
-                <button
-                  className={`tab-chip ${filterLang === 'en' ? 'active' : ''}`}
-                  onClick={() => setFilterLang('en')}
+          {/* Section: Auto-Language Detection Toggle */}
+          <div className="settings-card-highlight">
+            <div className="toggle-row no-bg">
+              <div className="toggle-label-text">
+                <strong className="flex-center gap-6">
+                  <Globe size={18} className="text-emerald" />
+                  Auto-Detect Language & Switch Voices (স্বয়ংক্রিয় ভাষা পরিবর্তন)
+                </strong>
+                <span>
+                  Automatically detects Bengali (বাংলা) vs English per word/sentence and reads with the appropriate voice.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                className="toggle-switch"
+                checked={autoLanguageDetect}
+                onChange={onToggleAutoLanguageDetect}
+              />
+            </div>
+          </div>
+
+          {/* Section: Dual Voice Selectors for Auto Mode */}
+          {autoLanguageDetect ? (
+            <div className="settings-grid-2col">
+              {/* Bengali Voice */}
+              <div className="settings-group">
+                <label className="settings-label">
+                  <span className="lang-flag">🇧🇩</span>
+                  <span>Bangla Voice (বাংলা কণ্ঠস্বর)</span>
+                </label>
+                <div className="voice-select-stacked">
+                  <select
+                    className="custom-select"
+                    value={preferredBanglaVoiceURI}
+                    onChange={(e) => onSelectBanglaVoice(e.target.value)}
+                  >
+                    {banglaVoices.length > 0 ? (
+                      banglaVoices.map((v) => (
+                        <option key={v.voiceURI} value={v.voiceURI}>
+                          {v.name} ({v.lang})
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">Browser Default Bangla (bn-BD / bn-IN)</option>
+                    )}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-secondary test-voice-btn"
+                    onClick={() => handleTestVoice('bn')}
+                    disabled={previewSpeaking}
+                  >
+                    <Play size={13} />
+                    <span>বাংলা শুনুন (Preview)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* English Voice */}
+              <div className="settings-group">
+                <label className="settings-label">
+                  <span className="lang-flag">🌐</span>
+                  <span>English Voice (ইংরেজি কণ্ঠস্বর)</span>
+                </label>
+                <div className="voice-select-stacked">
+                  <select
+                    className="custom-select"
+                    value={preferredEnglishVoiceURI}
+                    onChange={(e) => onSelectEnglishVoice(e.target.value)}
+                  >
+                    {englishVoices.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {v.name} ({v.lang})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-secondary test-voice-btn"
+                    onClick={() => handleTestVoice('en')}
+                    disabled={previewSpeaking}
+                  >
+                    <Play size={13} />
+                    <span>Listen English (Preview)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Manual Single Voice Selection */
+            <div className="settings-group">
+              <div className="settings-group-header">
+                <label className="settings-label">
+                  <Volume2 size={16} />
+                  <span>Manual Voice Selector</span>
+                </label>
+                <div className="lang-filter-tabs">
+                  <button
+                    className={`tab-chip ${filterLang === 'bn' ? 'active' : ''}`}
+                    onClick={() => setFilterLang('bn')}
+                  >
+                    বাংলা ({banglaVoices.length})
+                  </button>
+                  <button
+                    className={`tab-chip ${filterLang === 'en' ? 'active' : ''}`}
+                    onClick={() => setFilterLang('en')}
+                  >
+                    English ({englishVoices.length})
+                  </button>
+                  <button
+                    className={`tab-chip ${filterLang === 'all' ? 'active' : ''}`}
+                    onClick={() => setFilterLang('all')}
+                  >
+                    All ({voices.length})
+                  </button>
+                </div>
+              </div>
+
+              <div className="voice-select-container">
+                <select
+                  className="custom-select"
+                  value={selectedVoiceURI}
+                  onChange={(e) => onSelectVoice(e.target.value)}
                 >
-                  English Voices ({voices.filter((v) => v.lang.startsWith('en')).length})
-                </button>
+                  {filteredVoices.map((v) => (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+
                 <button
-                  className={`tab-chip ${filterLang === 'all' ? 'active' : ''}`}
-                  onClick={() => setFilterLang('all')}
+                  type="button"
+                  className="btn btn-secondary test-voice-btn"
+                  onClick={() => handleTestVoice(filterLang === 'bn' ? 'bn' : 'en')}
+                  disabled={previewSpeaking}
                 >
-                  All Languages ({voices.length})
+                  <Play size={14} className={previewSpeaking ? 'pulse-anim' : ''} />
+                  <span>{previewSpeaking ? 'Speaking...' : 'Test Voice'}</span>
                 </button>
               </div>
             </div>
-
-            <div className="voice-select-container">
-              <select
-                className="custom-select"
-                value={selectedVoiceURI}
-                onChange={(e) => onSelectVoice(e.target.value)}
-              >
-                {filteredVoices.map((v) => (
-                  <option key={v.voiceURI} value={v.voiceURI}>
-                    {v.name} ({v.lang})
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                className="btn btn-secondary test-voice-btn"
-                onClick={handleTestVoice}
-                disabled={previewSpeaking}
-              >
-                <Play size={14} className={previewSpeaking ? 'pulse-anim' : ''} />
-                <span>{previewSpeaking ? 'Speaking...' : 'Test Voice'}</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* Section: Speed & Pitch Sliders */}
           <div className="settings-grid-2col">
             {/* Speed Slider */}
             <div className="settings-group">
               <div className="slider-header">
-                <label className="settings-label">Reading Speed</label>
+                <label className="settings-label">Reading Speed (গতি)</label>
                 <div className="slider-value-display">
                   <span>{rate.toFixed(2)}x</span>
                   {rate !== 1.0 && (
@@ -170,7 +299,7 @@ export default function VoiceSettingsModal({
             {/* Pitch Slider */}
             <div className="settings-group">
               <div className="slider-header">
-                <label className="settings-label">Voice Pitch</label>
+                <label className="settings-label">Voice Pitch (স্বরগ্রাম)</label>
                 <div className="slider-value-display">
                   <span>{pitch.toFixed(2)}</span>
                   {pitch !== 1.0 && (
@@ -252,7 +381,7 @@ export default function VoiceSettingsModal({
 
               <label className="toggle-row">
                 <div className="toggle-label-text">
-                  <strong>Continuous Reading</strong>
+                  <strong>Continuous Reading (ধারাবাহিক পাঠ)</strong>
                   <span>Automatically advance to the next section when reading finishes</span>
                 </div>
                 <input
