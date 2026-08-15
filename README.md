@@ -248,7 +248,7 @@ For a comprehensive deep dive into:
 - Multi-language segmentation and locale routing
 - Full API references and extension guides
 
-Please refer to the complete [**DOCUMENTATION.md**](DOCUMENTATION.md) file.
+Please open the complete standalone [**DOCUMENTATION.html**](DOCUMENTATION.html) in your browser.
 
 ---
 
