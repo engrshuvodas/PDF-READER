@@ -6,12 +6,10 @@ import {
   SkipBack,
   SkipForward,
   Volume2,
-  VolumeX,
   Sliders,
-  Sparkles,
   Repeat,
-  ChevronUp,
-  ChevronDown
+  Globe,
+  ChevronUp
 } from 'lucide-react';
 
 const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0];
@@ -21,6 +19,8 @@ export default function PlaybackDock({
   totalSections,
   currentSectionIndex,
   activeWord,
+  activeLanguage,
+  autoLanguageDetect,
   playbackState,
   onPlay,
   onPause,
@@ -53,6 +53,8 @@ export default function PlaybackDock({
   const currentSectionNum = currentSectionIndex >= 0 ? currentSectionIndex + 1 : 1;
   const progressPercent = totalSections > 0 ? (currentSectionNum / totalSections) * 100 : 0;
 
+  const isCurrentBengali = activeLanguage && activeLanguage.startsWith('bn');
+
   return (
     <div className={`playback-dock-container ${isPlaying ? 'dock-active' : ''}`}>
       {/* Mini Progress Bar at Top of Dock */}
@@ -64,7 +66,7 @@ export default function PlaybackDock({
       </div>
 
       <div className="playback-dock-content">
-        {/* Left: Section Info & Word Ticker */}
+        {/* Left: Section Info, Language Badge & Word Ticker */}
         <div className="dock-left">
           <div className="dock-soundwave-container">
             {isPlaying ? (
@@ -88,6 +90,10 @@ export default function PlaybackDock({
               {currentSection && (
                 <span className="dock-page-tag">Page {currentSection.pageNumber}</span>
               )}
+              {/* Language Active Indicator Badge */}
+              <span className={`dock-lang-tag ${isCurrentBengali ? 'lang-bn' : 'lang-en'}`}>
+                {isCurrentBengali ? '🇧🇩 বাংলা' : '🌐 English'}
+              </span>
             </div>
             <div className="dock-word-preview" title={currentSection?.text}>
               {activeWord ? (
@@ -155,7 +161,7 @@ export default function PlaybackDock({
           </button>
         </div>
 
-        {/* Right: Voice Quick Selector & Speed Chips */}
+        {/* Right: Voice Quick Selector, Speed Chips & Language Mode */}
         <div className="dock-right">
           {/* Speed Preset Selector */}
           <div className="speed-selector-wrapper">
@@ -188,43 +194,28 @@ export default function PlaybackDock({
             )}
           </div>
 
-          {/* Voice Selector */}
+          {/* Auto Language / Voice Quick Button */}
           <div className="voice-selector-wrapper">
             <button
               className="dock-voice-btn"
-              onClick={() => setShowVoiceDropdown(!showVoiceDropdown)}
-              onBlur={() => setTimeout(() => setShowVoiceDropdown(false), 200)}
-              title={selectedVoice ? selectedVoice.name : 'Select Voice'}
+              onClick={onOpenSettings}
+              title={
+                autoLanguageDetect
+                  ? 'Auto-Language Detection Active (Bangla & English)'
+                  : selectedVoice
+                  ? selectedVoice.name
+                  : 'Select Voice'
+              }
             >
-              <Volume2 size={15} />
+              <Globe size={14} className="text-primary" />
               <span className="voice-name-trim">
-                {selectedVoice
-                  ? selectedVoice.name.replace(/(Google|Microsoft|Apple|Desktop)\s*/g, '').slice(0, 14)
+                {autoLanguageDetect
+                  ? 'Auto Lang (EN/বাং)'
+                  : selectedVoice
+                  ? selectedVoice.name.replace(/(Google|Microsoft|Apple|Desktop)\s*/g, '').slice(0, 12)
                   : 'Voice'}
               </span>
-              <ChevronUp size={12} className={`chevron ${showVoiceDropdown ? 'open' : ''}`} />
             </button>
-
-            {showVoiceDropdown && (
-              <div className="voice-dropdown-menu">
-                <div className="dropdown-label">Select Voice</div>
-                <div className="voice-list-scroll">
-                  {voices.map((v) => (
-                    <button
-                      key={v.voiceURI}
-                      className={`voice-option ${selectedVoiceURI === v.voiceURI ? 'active' : ''}`}
-                      onClick={() => {
-                        onSelectVoice(v.voiceURI);
-                        setShowVoiceDropdown(false);
-                      }}
-                    >
-                      <span className="voice-option-name">{v.name}</span>
-                      <span className="voice-option-lang">{v.lang}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Continuous Auto-Read Next Toggle */}
@@ -244,7 +235,7 @@ export default function PlaybackDock({
           <button
             className="dock-ctrl-btn"
             onClick={onOpenSettings}
-            title="Fine-tune audio & highlight options"
+            title="Fine-tune Bengali & English voices and audio"
             aria-label="Settings"
           >
             <Sliders size={17} />
