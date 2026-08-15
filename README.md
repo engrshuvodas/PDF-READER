@@ -1,62 +1,101 @@
-# PDF READER
+# PDF Voice Reader 🎙️📄
 
-# Antigravity Prompt — PDF Text-to-Speech Reader with Word Highlighting
+A modern, high-performance React + Vite web application that enables users to upload PDF documents and listen to them via text-to-speech with **real-time, word-level karaoke highlighting** synchronized to the speech voice.
 
-Build a web application called **"PDF Voice Reader"** with the following exact specifications.
+![PDF Voice Reader Preview](https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&q=80)
 
-## Overview
-A React web app where a user uploads a PDF, and the app lets them listen to the PDF content via text-to-speech, with real-time word-level highlighting synced to the voice — so the user can visually follow along with exactly which word is being spoken.
+---
 
-## Tech Stack (100% free, no paid APIs, no backend required)
-- **Frontend framework**: React + Vite
-- **PDF rendering & text extraction**: PDF.js (pdfjs-dist npm package)
-- **Text-to-speech**: Web Speech API (`SpeechSynthesisUtterance`) — built into the browser, no API key needed
-- **Styling**: Plain CSS or Tailwind CSS
-- **Hosting target**: Should be deployable as a static site (Vercel/Netlify free tier) — no backend server needed since everything runs client-side
+## ✨ Features
 
-## Core Features
+- **100% Free & Client-Side**: Zero paid APIs, zero backend servers, zero API keys. Everything runs locally in your browser.
+- **Precise Karaoke Word Highlighting**: Powered by `SpeechSynthesisUtterance.onboundary` mapped to PDF.js extracted text bounding boxes.
+- **Section & Paragraph Detection**: Automatically detects logical paragraphs and renders inline 🔊 play buttons on the margin of each section.
+- **Click-to-Speak**: Click **any word** on the PDF to immediately start reading from that exact point.
+- **Multi-page PDF Rendering**: High-DPI canvas rendering with zoom controls (Fit width, 50%–250%).
+- **Floating Playback Dock**:
+  - Play / Pause / Resume / Stop controls
+  - Skip to Next / Previous section
+  - Live animated frequency audio visualizer waveform
+  - Reading progress indicator & spoken word ticker
+  - Quick speed presets (`0.75x`, `1.0x`, `1.25x`, `1.5x`, `2.0x`)
+  - Voice selector dropdown
+  - Continuous auto-reading mode
+- **Customizable Experience**:
+  - **4 Karaoke Themes**: Amber Gold, Electric Cyan, Emerald Mint, Neon Violet
+  - **Voice & Pitch Customization**: Pitch, rate, volume, and voice selection with audio preview
+  - **Dark / Light Theme Toggle**: Sleek glassmorphic dark mode and clean light mode
+  - **Auto-scroll**: Smoothly keeps the active word centered in view
+- **Built-in Sample Documents**: Includes pre-loaded multi-page sample PDFs for 1-click instant testing without needing to find a PDF file.
 
-### 1. PDF Upload & Rendering
-- Allow user to upload a PDF file (drag-and-drop or file picker).
-- Render the PDF pages using PDF.js, preserving layout.
-- Extract text content along with each word's bounding box position (using PDF.js `getTextContent()` per page).
+---
 
-### 2. Section Detection
-- Break the PDF content into logical sections (by paragraph or by page, whichever is simpler to implement reliably).
-- Next to each section, render a small 🔊 **play button** (icon button, positioned near the section).
+## 🛠️ Tech Stack
 
-### 3. Text-to-Speech Playback
-- On clicking a section's play button, use `SpeechSynthesisUtterance` to read that section's text aloud.
-- Implement Play, Pause, and Resume controls using `speechSynthesis.pause()` / `speechSynthesis.resume()` / `speechSynthesis.cancel()`.
-- Only one section should play at a time (starting a new section stops any currently playing one).
-- Default voice: use the first available English voice from `speechSynthesis.getVoices()`; allow the user to pick a different installed voice from a dropdown if multiple are available.
+- **Frontend**: [React 18](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **PDF Engine**: [PDF.js](https://mozilla.github.io/pdf.js/) (`pdfjs-dist`)
+- **Speech Engine**: Web Speech API (`window.speechSynthesis` / `SpeechSynthesisUtterance`)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Effects**: [canvas-confetti](https://github.com/catdad/canvas-confetti)
 
-### 4. Word-Level Highlight Sync (core feature — most important part)
-- Use the `onboundary` event of `SpeechSynthesisUtterance` to detect when each word starts being spoken (event gives `charIndex` into the text being read).
-- Map that `charIndex` back to the correct word in the original section text.
-- Match that word to its corresponding bounding box (from the PDF.js text extraction in step 1).
-- Apply a CSS highlight (e.g., yellow background) to that word's position in the rendered PDF view.
-- Remove the highlight from the previously highlighted word when moving to the next word.
-- This must feel like real-time karaoke-style highlighting — the highlighted word should update in sync with the voice, word by word.
+---
 
-### 5. Playback Controls UI
-- Global controls: Play/Pause/Stop for whichever section is active.
-- Optional: playback speed control (`utterance.rate`, e.g. 0.5x to 2x) and voice pitch control (`utterance.pitch`).
-- Show a subtle visual indicator of which section is currently playing (e.g., highlighted play button icon).
+## 🚀 Getting Started
 
-## Important Implementation Notes
-- Target **Google Chrome** as the primary supported browser, since Chrome has the most reliable `onboundary` event firing for Web Speech API. Mention in the UI if another browser is being used and highlighting may be less accurate.
-- No backend is needed — all PDF parsing and TTS happens client-side in the browser.
-- No paid APIs or API keys — everything must work with only PDF.js and the browser's built-in Web Speech API.
-- Handle edge cases: PDFs with scanned images (no extractable text) should show a friendly message saying text-to-speech isn't available for that page.
-- Keep the code modular: separate components for PDF viewer, section/play-button overlay, TTS controller/hook, and word-highlight logic.
+### Prerequisites
+- Node.js (v18 or higher)
+- npm or yarn
 
-## Deliverable
-A working React + Vite project with:
-- PDF upload and viewer
-- Per-section play buttons
-- Working TTS playback with pause/resume
-- Real-time word highlighting synced to speech
-- Clean, simple UI (doesn't need to be fancy — functionality first)
+### Installation
 
-Please set up the project structure, install necessary dependencies (pdfjs-dist), and implement this feature end-to-end.
+```bash
+# Clone the repository
+git clone https://github.com/engrshuvodas/PDF-READER.git
+
+# Navigate to project directory
+cd "PDF READER"
+
+# Install dependencies
+npm install
+
+# Start local development server
+npm run dev
+```
+
+The app will start at `http://localhost:3000/`.
+
+### Production Build
+
+```bash
+npm run build
+```
+
+The compiled static assets will be created in `dist/`, ready for deployment to any static hosting provider (Vercel, Netlify, Cloudflare Pages, GitHub Pages).
+
+---
+
+## 🌐 Browser Compatibility
+
+| Browser | Highlighting Sync | Notes |
+| :--- | :--- | :--- |
+| **Google Chrome** | ⭐⭐⭐⭐⭐ Ideal | Full `onboundary` character index accuracy |
+| **Microsoft Edge** | ⭐⭐⭐⭐⭐ Ideal | Full `onboundary` character index accuracy |
+| **Brave / Opera / Chromium** | ⭐⭐⭐⭐⭐ Ideal | Full `onboundary` character index accuracy |
+| **Safari / WebKit** | ⭐⭐⭐ Basic | Speech works, boundary event timing is approximate |
+| **Firefox** | ⭐⭐⭐ Basic | Speech works, boundary event timing is approximate |
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Key | Action |
+| :--- | :--- |
+| `Space` | Toggle Play / Pause |
+| `Escape` | Stop Playback |
+| `Alt + Right Arrow` | Next Section |
+| `Alt + Left Arrow` | Previous Section |
+
+---
+
+## 📄 License
+MIT License

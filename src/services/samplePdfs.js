@@ -1,148 +1,125 @@
 /**
- * Sample PDF Generator
- * Generates standard compliant PDF binary Blobs entirely in pure JavaScript
- * to provide instant, zero-friction sample documents for testing without needing to upload a file.
+ * Validated High-Fidelity Sample PDF Generator
+ * Generates standards-compliant PDF binary Blobs entirely client-side
+ * for instant testing without needing to upload a local PDF file.
  */
 
 function escapePdfText(text) {
   return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
-/**
- * Creates a raw standard PDF 1.4 document Blob from a title and array of page paragraphs
- */
 function createPdfBlob(docTitle, pagesData) {
-  // A standard minimal PDF structure with Helvetica font
-  const objects = [];
-  let objCount = 0;
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const margin = 50;
 
-  function addObj(content) {
-    objCount++;
-    objects.push({ id: objCount, content });
-    return objCount;
+  let nextId = 1;
+  function createId() {
+    return nextId++;
   }
 
-  // 1. Catalog
-  const catalogId = 1;
-  // 2. Pages
-  const pagesId = 2;
-  // 3. Font Helvetica
-  const fontId = 3;
+  const catalogId = createId(); // 1
+  const pagesParentId = createId(); // 2
+  const fontId = createId(); // 3
 
-  objCount = 3; // reserve 1, 2, 3
+  const pageIds = [];
+  const pageEntries = [];
 
-  const pageObjectIds = [];
-
-  pagesData.forEach((page) => {
-    // Generate text stream for page
-    // Page dimensions: 595.28 x 841.89 (Standard A4 in points)
-    const pageWidth = 595.28;
-    const pageHeight = 841.89;
-    const margin = 54;
-    const contentWidth = pageWidth - margin * 2;
-
+  for (const page of pagesData) {
     let stream = '';
-    let currentY = pageHeight - margin - 30;
+    let currentY = pageHeight - margin - 20;
 
-    // Page Header / Title
     if (page.title) {
-      stream += `BT\n/F1 20 Tf\n0.15 0.23 0.45 rg\n${margin} ${currentY} Td\n(${escapePdfText(page.title)}) Tj\nET\n`;
-      currentY -= 35;
+      stream += `BT\n/F1 20 Tf\n0.12 0.2 0.4 rg\n${margin} ${currentY} Td\n(${escapePdfText(page.title)}) Tj\nET\n`;
+      currentY -= 32;
     }
 
     if (page.subtitle) {
-      stream += `BT\n/F1 12 Tf\n0.40 0.45 0.55 rg\n${margin} ${currentY} Td\n(${escapePdfText(page.subtitle)}) Tj\nET\n`;
+      stream += `BT\n/F1 12 Tf\n0.35 0.4 0.5 rg\n${margin} ${currentY} Td\n(${escapePdfText(page.subtitle)}) Tj\nET\n`;
       currentY -= 25;
     }
 
-    // Divider line
+    // Horizontal Divider
     stream += `0.85 0.88 0.92 RG 1.5 w\n${margin} ${currentY + 10} m ${pageWidth - margin} ${currentY + 10} l S\n`;
     currentY -= 15;
 
-    // Paragraphs
-    page.paragraphs.forEach((p) => {
+    for (const p of page.paragraphs) {
       if (p.heading) {
         currentY -= 10;
-        stream += `BT\n/F1 14 Tf\n0.2 0.25 0.35 rg\n${margin} ${currentY} Td\n(${escapePdfText(p.heading)}) Tj\nET\n`;
+        stream += `BT\n/F1 14 Tf\n0.18 0.22 0.32 rg\n${margin} ${currentY} Td\n(${escapePdfText(p.heading)}) Tj\nET\n`;
         currentY -= 20;
       }
 
-      // Word wrapping for paragraph body
       const words = p.body.split(/\s+/);
       const lines = [];
       let currentLine = '';
-      const maxCharsPerLine = 72;
-
-      words.forEach((w) => {
-        if ((currentLine + ' ' + w).trim().length > maxCharsPerLine) {
+      for (const w of words) {
+        if ((currentLine + ' ' + w).trim().length > 68) {
           lines.push(currentLine.trim());
           currentLine = w + ' ';
         } else {
           currentLine += w + ' ';
         }
-      });
-      if (currentLine.trim()) {
-        lines.push(currentLine.trim());
       }
+      if (currentLine.trim()) lines.push(currentLine.trim());
 
-      // Render lines
-      stream += `BT\n/F1 11 Tf\n0.2 0.2 0.22 rg\n${margin} ${currentY} Td\n15 TL\n`;
+      stream += `BT\n/F1 11 Tf\n0.15 0.15 0.18 rg\n${margin} ${currentY} Td\n16 TL\n`;
       lines.forEach((line, idx) => {
         if (idx === 0) {
           stream += `(${escapePdfText(line)}) Tj\n`;
         } else {
           stream += `T* (${escapePdfText(line)}) Tj\n`;
         }
-        currentY -= 15;
+        currentY -= 16;
       });
       stream += `ET\n`;
-      currentY -= 15; // gap between paragraphs
-    });
+      currentY -= 14;
+    }
 
     // Page footer
-    stream += `BT\n/F1 9 Tf\n0.6 0.6 0.65 rg\n${margin} 35 Td\n(PDF Voice Reader Sample - Page ${pageObjectIds.length + 1}) Tj\nET\n`;
+    stream += `BT\n/F1 9 Tf\n0.5 0.5 0.55 rg\n${margin} 35 Td\n(PDF Voice Reader Sample - Page ${pageIds.length + 1}) Tj\nET\n`;
 
-    const streamLength = stream.length;
-    const contentStreamId = addObj(`<< /Length ${streamLength} >>\nstream\n${stream}\nendstream`);
-    const pageId = addObj(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${contentStreamId} 0 R /Resources << /Font << /F1 3 0 R >> >> >>`
-    );
-    pageObjectIds.push(pageId);
-  });
+    const contentId = createId();
+    const pageId = createId();
+    pageIds.push(pageId);
 
-  // Put together objects
-  let body = '%PDF-1.4\n%âãÏÓ\n';
+    const streamBytesLen = new TextEncoder().encode(stream).length;
+    const contentObj = `${contentId} 0 obj\n<< /Length ${streamBytesLen} >>\nstream\n${stream}\nendstream\nendobj\n`;
+    const pageObj = `${pageId} 0 obj\n<< /Type /Page /Parent ${pagesParentId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${contentId} 0 R /Resources << /Font << /F1 ${fontId} 0 R >> >> >>\nendobj\n`;
+
+    pageEntries.push({ contentId, contentObj, pageId, pageObj });
+  }
+
+  // Build Object map
+  const objMap = new Map();
+  objMap.set(catalogId, `${catalogId} 0 obj\n<< /Type /Catalog /Pages ${pagesParentId} 0 R >>\nendobj\n`);
+  objMap.set(pagesParentId, `${pagesParentId} 0 obj\n<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>\nendobj\n`);
+  objMap.set(fontId, `${fontId} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`);
+
+  for (const entry of pageEntries) {
+    objMap.set(entry.contentId, entry.contentObj);
+    objMap.set(entry.pageId, entry.pageObj);
+  }
+
+  let pdfString = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
   const offsets = [];
 
-  function recordObj(id, content) {
-    offsets[id] = body.length;
-    body += `${id} 0 obj\n${content}\nendobj\n`;
+  for (let id = 1; id < nextId; id++) {
+    offsets[id] = new TextEncoder().encode(pdfString).length;
+    pdfString += objMap.get(id);
   }
 
-  // 1: Catalog
-  recordObj(catalogId, `<< /Type /Catalog /Pages 2 0 R >>`);
-  // 2: Pages
-  recordObj(pagesId, `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageObjectIds.length} >>`);
-  // 3: Font
-  recordObj(fontId, `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`);
-
-  // Extra content & page objects
-  for (let i = 3; i < objects.length; i++) {
-    const obj = objects[i];
-    recordObj(obj.id, obj.content);
+  const startXref = new TextEncoder().encode(pdfString).length;
+  pdfString += `xref\n0 ${nextId}\n0000000000 65535 f \r\n`;
+  for (let id = 1; id < nextId; id++) {
+    const off = (offsets[id] || 0).toString().padStart(10, '0');
+    pdfString += `${off} 00000 n \r\n`;
   }
 
-  // XREF table
-  const startXref = body.length;
-  body += `xref\n0 ${objCount + 1}\n0000000000 65535 f \n`;
-  for (let i = 1; i <= objCount; i++) {
-    const off = (offsets[i] || 0).toString().padStart(10, '0');
-    body += `${off} 00000 n \n`;
-  }
+  pdfString += `trailer\n<< /Size ${nextId} /Root ${catalogId} 0 R >>\nstartxref\n${startXref}\n%%EOF\n`;
 
-  body += `trailer\n<< /Size ${objCount + 1} /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF\n`;
-
-  return new Blob([body], { type: 'application/pdf' });
+  const uint8 = new Uint8Array(new TextEncoder().encode(pdfString));
+  return new Blob([uint8], { type: 'application/pdf' });
 }
 
 export const SAMPLE_DOCUMENTS = [

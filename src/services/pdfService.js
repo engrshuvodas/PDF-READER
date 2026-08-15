@@ -1,33 +1,50 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
 
-// Set up PDF.js worker using local bundled or CDN fallback
+// Set up PDF.js worker using local bundled asset from Vite
 if (typeof window !== 'undefined') {
   try {
-    // Try using CDN worker matching pdfjs-dist version
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '3.11.174'}/pdf.worker.min.js`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
   } catch (err) {
-    console.warn('Failed to set PDF worker src from CDN, falling back:', err);
+    console.warn('Worker initialization fallback:', err);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
   }
 }
 
 /**
  * Load PDF Document from File, Blob, or ArrayBuffer
- * @param {File|Blob|ArrayBuffer|string} source
+ * @param {File|Blob|ArrayBuffer|Uint8Array|string} source
  * @returns {Promise<pdfjsLib.PDFDocumentProxy>}
  */
 export async function loadPdfDocument(source) {
-  let loadingTask;
+  let data;
+
   if (source instanceof File || source instanceof Blob) {
     const arrayBuffer = await source.arrayBuffer();
-    loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-  } else if (source instanceof ArrayBuffer || source instanceof Uint8Array) {
-    loadingTask = pdfjsLib.getDocument({ data: source });
+    data = new Uint8Array(arrayBuffer);
+  } else if (source instanceof ArrayBuffer) {
+    data = new Uint8Array(source);
+  } else if (source instanceof Uint8Array) {
+    data = source;
+  }
+
+  const getDoc = pdfjsLib.getDocument || pdfjsLib.default?.getDocument;
+  
+  const loadingParams = {
+    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/'
+  };
+
+  if (data) {
+    loadingParams.data = data;
   } else if (typeof source === 'string') {
-    loadingTask = pdfjsLib.getDocument(source);
+    loadingParams.url = source;
   } else {
     throw new Error('Unsupported PDF source type');
   }
 
+  const loadingTask = getDoc(loadingParams);
   const pdfDoc = await loadingTask.promise;
   return pdfDoc;
 }
@@ -121,10 +138,9 @@ function processPageTextContent(textContent, pageNumber, pageWidth, pageHeight, 
 
   // 2. Sort items by vertical position (top to bottom), then horizontal (left to right)
   parsedItems.sort((a, b) => {
-    // If vertical centers are close within ~50% font height, treat as same horizontal line
     const yDiff = a.normY - b.normY;
     const avgH = (a.normH + b.normH) / 2;
-    if (Math.abs(yDiff) < avgH * 0.4) {
+    if (Math.abs(yDiff) < avgH * 0.45) {
       return a.normX - b.normX;
     }
     return yDiff;
@@ -147,7 +163,6 @@ function processPageTextContent(textContent, pageNumber, pageWidth, pageHeight, 
         currentLine.push(item);
         currentLineH = Math.max(currentLineH, item.normH);
       } else {
-        // Sort line items left to right
         currentLine.sort((a, b) => a.normX - b.normX);
         lines.push({
           items: currentLine,
@@ -189,14 +204,12 @@ function processPageTextContent(textContent, pageNumber, pageWidth, pageHeight, 
     const verticalGap = line.normY - prevLine.bottomY;
     const avgLineH = (prevLine.normH + line.normH) / 2;
     
-    // Check if line spacing suggests a new paragraph (e.g. > 1.25x line height)
-    // or if current section is getting quite long (> 70 words)
     const currentWordEst = currentSectionLines.reduce(
       (sum, l) => sum + l.items.reduce((s, it) => s + it.str.split(/\s+/).filter(Boolean).length, 0), 
       0
     );
 
-    const isLargeGap = verticalGap > avgLineH * 0.9;
+    const isLargeGap = verticalGap > avgLineH * 0.85;
     const isTooLong = currentWordEst >= 60;
 
     if (isLargeGap || isTooLong) {
@@ -222,17 +235,13 @@ function processPageTextContent(textContent, pageNumber, pageWidth, pageHeight, 
 
     for (const line of secLines) {
       for (const item of line.items) {
-        // Extract words with character sub-offsets
         const itemStr = item.str;
-        // Match words and whitespace
         const regex = /\S+/g;
         let match;
         while ((match = regex.exec(itemStr)) !== null) {
           const wordText = match[0];
           const charStart = match.index;
-          const charEnd = charStart + wordText.length;
 
-          // Compute sub-item proportional horizontal position
           const startRatio = charStart / itemStr.length;
           const lengthRatio = wordText.length / itemStr.length;
 
@@ -259,7 +268,6 @@ function processPageTextContent(textContent, pageNumber, pageWidth, pageHeight, 
     const sectionId = `sec-p${pageNumber}-${secIdx}`;
     const globalSectionIndex = startGlobalSectionIndex + sections.length;
 
-    // Build the clean full speech string and exact charIndex map
     let speechText = '';
     const words = [];
 
@@ -285,7 +293,6 @@ function processPageTextContent(textContent, pageNumber, pageWidth, pageHeight, 
       pageWordCount++;
     }
 
-    // Compute bounding box for entire section (for outline / indicator)
     let minX = 1, minY = 1, maxX = 0, maxY = 0;
     for (const w of words) {
       minX = Math.min(minX, w.normBox.x);
@@ -307,7 +314,6 @@ function processPageTextContent(textContent, pageNumber, pageWidth, pageHeight, 
         w: Math.min(1.0, (maxX - minX) + 0.02),
         h: Math.min(1.0, (maxY - minY) + 0.01)
       },
-      // Position for the floating/margin 🔊 play button
       buttonPosition: {
         normX: Math.max(0.005, minX - 0.04),
         normY: Math.max(0.005, minY)
@@ -353,6 +359,7 @@ export async function renderPageToCanvas(page, canvas, scale = 1.2) {
   return {
     width: displayViewport.width,
     height: displayViewport.height,
-    viewport: displayViewport
+    viewport: displayViewport,
+    renderTask
   };
 }
