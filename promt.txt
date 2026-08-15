@@ -1,0 +1,60 @@
+# Antigravity Prompt — PDF Text-to-Speech Reader with Word Highlighting
+
+Build a web application called **"PDF Voice Reader"** with the following exact specifications.
+
+## Overview
+A React web app where a user uploads a PDF, and the app lets them listen to the PDF content via text-to-speech, with real-time word-level highlighting synced to the voice — so the user can visually follow along with exactly which word is being spoken.
+
+## Tech Stack (100% free, no paid APIs, no backend required)
+- **Frontend framework**: React + Vite
+- **PDF rendering & text extraction**: PDF.js (pdfjs-dist npm package)
+- **Text-to-speech**: Web Speech API (`SpeechSynthesisUtterance`) — built into the browser, no API key needed
+- **Styling**: Plain CSS or Tailwind CSS
+- **Hosting target**: Should be deployable as a static site (Vercel/Netlify free tier) — no backend server needed since everything runs client-side
+
+## Core Features
+
+### 1. PDF Upload & Rendering
+- Allow user to upload a PDF file (drag-and-drop or file picker).
+- Render the PDF pages using PDF.js, preserving layout.
+- Extract text content along with each word's bounding box position (using PDF.js `getTextContent()` per page).
+
+### 2. Section Detection
+- Break the PDF content into logical sections (by paragraph or by page, whichever is simpler to implement reliably).
+- Next to each section, render a small 🔊 **play button** (icon button, positioned near the section).
+
+### 3. Text-to-Speech Playback
+- On clicking a section's play button, use `SpeechSynthesisUtterance` to read that section's text aloud.
+- Implement Play, Pause, and Resume controls using `speechSynthesis.pause()` / `speechSynthesis.resume()` / `speechSynthesis.cancel()`.
+- Only one section should play at a time (starting a new section stops any currently playing one).
+- Default voice: use the first available English voice from `speechSynthesis.getVoices()`; allow the user to pick a different installed voice from a dropdown if multiple are available.
+
+### 4. Word-Level Highlight Sync (core feature — most important part)
+- Use the `onboundary` event of `SpeechSynthesisUtterance` to detect when each word starts being spoken (event gives `charIndex` into the text being read).
+- Map that `charIndex` back to the correct word in the original section text.
+- Match that word to its corresponding bounding box (from the PDF.js text extraction in step 1).
+- Apply a CSS highlight (e.g., yellow background) to that word's position in the rendered PDF view.
+- Remove the highlight from the previously highlighted word when moving to the next word.
+- This must feel like real-time karaoke-style highlighting — the highlighted word should update in sync with the voice, word by word.
+
+### 5. Playback Controls UI
+- Global controls: Play/Pause/Stop for whichever section is active.
+- Optional: playback speed control (`utterance.rate`, e.g. 0.5x to 2x) and voice pitch control (`utterance.pitch`).
+- Show a subtle visual indicator of which section is currently playing (e.g., highlighted play button icon).
+
+## Important Implementation Notes
+- Target **Google Chrome** as the primary supported browser, since Chrome has the most reliable `onboundary` event firing for Web Speech API. Mention in the UI if another browser is being used and highlighting may be less accurate.
+- No backend is needed — all PDF parsing and TTS happens client-side in the browser.
+- No paid APIs or API keys — everything must work with only PDF.js and the browser's built-in Web Speech API.
+- Handle edge cases: PDFs with scanned images (no extractable text) should show a friendly message saying text-to-speech isn't available for that page.
+- Keep the code modular: separate components for PDF viewer, section/play-button overlay, TTS controller/hook, and word-highlight logic.
+
+## Deliverable
+A working React + Vite project with:
+- PDF upload and viewer
+- Per-section play buttons
+- Working TTS playback with pause/resume
+- Real-time word highlighting synced to speech
+- Clean, simple UI (doesn't need to be fancy — functionality first)
+
+Please set up the project structure, install necessary dependencies (pdfjs-dist), and implement this feature end-to-end.
