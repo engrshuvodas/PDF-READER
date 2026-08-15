@@ -54,14 +54,28 @@
 >
 > And that’s how the idea was born.
 >
+> <br />
+>
+> #### 🤷‍♂️ *"Wait, aren't there already tons of tools like this on Google?"*
+>
+> You might ask: *"There are already so many text-to-speech tools on Google. What was the need to build another one?"*
+>
+> Honestly, I thought the same at first. So I went ahead and tried existing software online.  
+> But right after completing the entire setup and uploading my document, **it slapped me with a paywall demanding money and paid subscriptions.** 💳😤
+>
+> That got me really frustrated.
+>
+> I thought: *"Why should students have to pay for something that can be completely free, private, and accessible to everyone?"*
+>
 > The funny part?  
 > I didn’t build it because I was a super productive student.  
-> **I built it because I was too lazy to study the normal way the night before my exam.** 😂
+> **I built it because I was too lazy to study the normal way the night before my exam—and too stubborn to pay for a tool that should be free.** 😂
 >
 > But sometimes, the best software ideas come from exactly that kind of problem:  
-> **“I don’t want to do this manually… so why not build something that does it for me?”**
+> **“I don’t want to do this manually, and I refuse to pay for subscriptions—so why not build something 100% free that does it for everyone?”**
 >
-> And on **15 August 2026 at 9:00 PM**, I decided to turn that idea into reality. 🚀
+> And on **15 August 2026 at 9:00 PM**, I decided to turn that idea into reality. 🚀  
+> **And now, here is the output!** 🎉
 
 <br />
 
