@@ -1,12 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  detectLanguage,
+  segmentSectionByLanguage,
+  findBestVoiceForLanguage,
+  hasBengali
+} from '../services/languageService';
 
 /**
- * Custom Hook for Web Speech API text-to-speech with word boundary synchronization
+ * Custom Hook for Web Speech API text-to-speech with multi-language auto-switching
+ * and real-time word boundary synchronization (supports English, Bengali / বাংলা, and mixed documents).
  */
 export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } = {}) {
   const [voices, setVoices] = useState([]);
-  const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
-  const [rate, setRate] = useState(1.0); // 0.5 - 2.0
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState(''); // Specific manual voice or '' for auto
+  const [preferredBanglaVoiceURI, setPreferredBanglaVoiceURI] = useState('');
+  const [preferredEnglishVoiceURI, setPreferredEnglishVoiceURI] = useState('');
+  const [autoLanguageDetect, setAutoLanguageDetect] = useState(true);
+
+  const [rate, setRate] = useState(1.0); // 0.5 - 2.5
   const [pitch, setPitch] = useState(1.0); // 0.5 - 1.5
   const [volume, setVolume] = useState(1.0); // 0.0 - 1.0
   const [playbackState, setPlaybackState] = useState('idle'); // 'idle' | 'playing' | 'paused'
@@ -14,29 +25,33 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
   const [currentSection, setCurrentSection] = useState(null);
   const [activeWordId, setActiveWordId] = useState(null);
   const [activeWord, setActiveWord] = useState(null);
+  const [activeLanguage, setActiveLanguage] = useState('en-US');
   const [autoPlayNext, setAutoPlayNext] = useState(true);
   const [highlightColor, setHighlightColor] = useState('amber'); // amber, cyan, emerald, violet
 
   const [browserSupport, setBrowserSupport] = useState({
     supported: true,
     hasPreciseBoundary: true,
-    browserName: 'Chrome'
+    browserName: 'Chrome',
+    hasBanglaVoice: false
   });
 
   const utteranceRef = useRef(null);
   const heartbeatTimerRef = useRef(null);
   const allSectionsRef = useRef([]);
   const activeSectionRef = useRef(null);
-  const charOffsetRef = useRef(0);
+  const segmentsQueueRef = useRef([]);
+  const currentSegmentIndexRef = useRef(0);
   const isPlayingRef = useRef(false);
 
-  // 1. Detect browser and Web Speech support
+  // 1. Detect browser and Web Speech capabilities
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       setBrowserSupport({
         supported: false,
         hasPreciseBoundary: false,
-        browserName: 'Unsupported'
+        browserName: 'Unsupported',
+        hasBanglaVoice: false
       });
       return;
     }
@@ -58,17 +73,18 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
       hasPreciseBoundary = true;
     } else if (isFirefox) {
       browserName = 'Mozilla Firefox';
-      hasPreciseBoundary = false; // Firefox has limited onboundary charIndex accuracy
+      hasPreciseBoundary = false;
     } else if (isSafari) {
       browserName = 'Apple Safari';
       hasPreciseBoundary = false;
     }
 
-    setBrowserSupport({
+    setBrowserSupport((prev) => ({
+      ...prev,
       supported: true,
       hasPreciseBoundary,
       browserName
-    });
+    }));
   }, []);
 
   // 2. Load and sort available voices
@@ -78,32 +94,50 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
     const availableVoices = window.speechSynthesis.getVoices() || [];
     if (availableVoices.length === 0) return;
 
-    // Sort: English voices first, then alphabetically
+    // Sort: Bengali & English first, then others
     const sorted = [...availableVoices].sort((a, b) => {
+      const aIsBn = a.lang.startsWith('bn');
+      const bIsBn = b.lang.startsWith('bn');
+      if (aIsBn && !bIsBn) return -1;
+      if (!aIsBn && bIsBn) return 1;
+
       const aIsEn = a.lang.startsWith('en');
       const bIsEn = b.lang.startsWith('en');
       if (aIsEn && !bIsEn) return -1;
       if (!aIsEn && bIsEn) return 1;
+
       return a.name.localeCompare(b.name);
     });
 
     setVoices(sorted);
 
-    // Pick default voice if not yet selected
-    if (!selectedVoiceURI && sorted.length > 0) {
-      // Look for natural / premium English voice first
-      const preferred = sorted.find(
-        (v) =>
-          v.lang.startsWith('en') &&
-          (v.name.includes('Natural') ||
-            v.name.includes('Google') ||
-            v.name.includes('Premium') ||
-            v.name.includes('Online'))
-      ) || sorted.find((v) => v.lang.startsWith('en')) || sorted[0];
+    const hasBn = sorted.some((v) => v.lang.startsWith('bn') || v.name.toLowerCase().includes('bangla') || v.name.toLowerCase().includes('bengali'));
+    setBrowserSupport((prev) => ({ ...prev, hasBanglaVoice: hasBn }));
 
-      setSelectedVoiceURI(preferred.voiceURI);
+    // Pick preferred Bengali voice
+    if (!preferredBanglaVoiceURI) {
+      const bnVoice = sorted.find((v) => v.lang.startsWith('bn') || v.name.toLowerCase().includes('bangla') || v.name.toLowerCase().includes('bengali'));
+      if (bnVoice) setPreferredBanglaVoiceURI(bnVoice.voiceURI);
     }
-  }, [selectedVoiceURI]);
+
+    // Pick preferred English voice
+    if (!preferredEnglishVoiceURI) {
+      const enVoice =
+        sorted.find(
+          (v) =>
+            v.lang.startsWith('en') &&
+            (v.name.includes('Natural') ||
+              v.name.includes('Google') ||
+              v.name.includes('Online') ||
+              v.name.includes('Premium'))
+        ) || sorted.find((v) => v.lang.startsWith('en')) || sorted[0];
+
+      if (enVoice) {
+        setPreferredEnglishVoiceURI(enVoice.voiceURI);
+        if (!selectedVoiceURI) setSelectedVoiceURI(enVoice.voiceURI);
+      }
+    }
+  }, [selectedVoiceURI, preferredBanglaVoiceURI, preferredEnglishVoiceURI]);
 
   useEffect(() => {
     populateVoices();
@@ -117,12 +151,11 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
     };
   }, [populateVoices]);
 
-  // Keep references in sync
   useEffect(() => {
     isPlayingRef.current = playbackState === 'playing';
   }, [playbackState]);
 
-  // Chrome Garbage Collection & Long Utterance Keepalive
+  // Chrome Garbage Collection Keepalive
   const startHeartbeat = () => {
     stopHeartbeat();
     heartbeatTimerRef.current = setInterval(() => {
@@ -140,25 +173,28 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
     }
   };
 
-  // Helper to find the word matching charIndex
-  const findWordForCharIndex = (section, charIndex) => {
-    if (!section || !section.words || section.words.length === 0) return null;
+  // Helper to find the word matching charIndex within a segment
+  const findWordForCharIndexInSegment = (segment, charIndex) => {
+    if (!segment || !segment.words || segment.words.length === 0) return null;
 
-    // Exact match within [charStart, charEnd)
-    for (let i = 0; i < section.words.length; i++) {
-      const w = section.words[i];
-      if (charIndex >= w.charStart && charIndex < w.charEnd) {
+    // Exact match in word bounds
+    for (let i = 0; i < segment.words.length; i++) {
+      const w = segment.words[i];
+      const relCharStart = w.charStart - segment.charOffset;
+      const relCharEnd = w.charEnd - segment.charOffset;
+      if (charIndex >= relCharStart && charIndex < relCharEnd) {
         return w;
       }
     }
 
-    // If on boundary / space, find the closest word
-    let closestWord = section.words[0];
+    // Closest match
+    let closestWord = segment.words[0];
     let minDistance = Infinity;
 
-    for (let i = 0; i < section.words.length; i++) {
-      const w = section.words[i];
-      const dist = Math.abs(w.charStart - charIndex);
+    for (let i = 0; i < segment.words.length; i++) {
+      const w = segment.words[i];
+      const relCharStart = w.charStart - segment.charOffset;
+      const dist = Math.abs(relCharStart - charIndex);
       if (dist < minDistance) {
         minDistance = dist;
         closestWord = w;
@@ -168,9 +204,6 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
     return closestWord;
   };
 
-  /**
-   * Set the list of all document sections for next/prev navigation
-   */
   const setDocumentSections = useCallback((sections) => {
     allSectionsRef.current = sections || [];
   }, []);
@@ -185,10 +218,136 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
     }
     utteranceRef.current = null;
     activeSectionRef.current = null;
+    segmentsQueueRef.current = [];
+    currentSegmentIndexRef.current = 0;
     setActiveWordId(null);
     setActiveWord(null);
     setPlaybackState('idle');
   }, []);
+
+  /**
+   * Internal recursive function to play through segmented queue
+   */
+  const playNextSegment = useCallback(() => {
+    const queue = segmentsQueueRef.current;
+    const index = currentSegmentIndexRef.current;
+    const section = activeSectionRef.current;
+
+    if (!section || index >= queue.length) {
+      stopHeartbeat();
+      // Section finished: advance to next section if autoPlayNext is true
+      if (autoPlayNext && allSectionsRef.current.length > 0) {
+        const currentIdx = allSectionsRef.current.findIndex((s) => s.id === section.id);
+        if (currentIdx !== -1 && currentIdx + 1 < allSectionsRef.current.length) {
+          const nextSec = allSectionsRef.current[currentIdx + 1];
+          setTimeout(() => {
+            playSection(nextSec, 0);
+          }, 350);
+          return;
+        }
+      }
+
+      // Finished all sections or no autoplay
+      setActiveWordId(null);
+      setActiveWord(null);
+      setPlaybackState('idle');
+      if (onPlaybackFinished) onPlaybackFinished();
+      return;
+    }
+
+    const segment = queue[index];
+    setActiveLanguage(segment.lang);
+
+    const utterance = new SpeechSynthesisUtterance(segment.text);
+    utteranceRef.current = utterance;
+
+    // Voice Selection: Auto-Detect Language or Manual Override
+    let voiceToUse = null;
+    if (autoLanguageDetect) {
+      if (segment.lang.startsWith('bn')) {
+        voiceToUse = findBestVoiceForLanguage(voices, 'bn-BD', preferredBanglaVoiceURI);
+      } else {
+        voiceToUse = findBestVoiceForLanguage(voices, 'en-US', preferredEnglishVoiceURI);
+      }
+    } else {
+      voiceToUse = voices.find((v) => v.voiceURI === selectedVoiceURI) || null;
+    }
+
+    if (voiceToUse) {
+      utterance.voice = voiceToUse;
+    }
+    utterance.lang = segment.lang; // Ensures browser TTS synthesizer sets proper locale engine
+
+    utterance.rate = rate;
+    utterance.pitch = pitch;
+    utterance.volume = volume;
+
+    // Word boundary event listener
+    utterance.onboundary = (event) => {
+      if (!activeSectionRef.current || activeSectionRef.current.id !== section.id) return;
+      const relCharIndex = event.charIndex || 0;
+      const matchedWord = findWordForCharIndexInSegment(segment, relCharIndex);
+
+      if (matchedWord) {
+        setActiveWordId(matchedWord.id);
+        setActiveWord(matchedWord);
+        if (onWordHighlight) {
+          onWordHighlight(matchedWord, section);
+        }
+      }
+    };
+
+    utterance.onstart = () => {
+      setPlaybackState('playing');
+      startHeartbeat();
+
+      const initialWord = segment.words[0];
+      if (initialWord) {
+        setActiveWordId(initialWord.id);
+        setActiveWord(initialWord);
+        if (onWordHighlight) {
+          onWordHighlight(initialWord, section);
+        }
+      }
+    };
+
+    utterance.onpause = () => {
+      setPlaybackState('paused');
+      stopHeartbeat();
+    };
+
+    utterance.onresume = () => {
+      setPlaybackState('playing');
+      startHeartbeat();
+    };
+
+    utterance.onend = () => {
+      currentSegmentIndexRef.current++;
+      playNextSegment();
+    };
+
+    utterance.onerror = (event) => {
+      if (event.error !== 'canceled' && event.error !== 'interrupted') {
+        console.error('SpeechSynthesis segment error:', event);
+        currentSegmentIndexRef.current++;
+        playNextSegment();
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [
+    voices,
+    autoLanguageDetect,
+    selectedVoiceURI,
+    preferredBanglaVoiceURI,
+    preferredEnglishVoiceURI,
+    rate,
+    pitch,
+    volume,
+    autoPlayNext,
+    onWordHighlight,
+    onPlaybackFinished
+  ]);
 
   /**
    * Play a specific section, optionally starting from a specific word index
@@ -212,119 +371,14 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
       setCurrentSection(section);
       if (onSectionChange) onSectionChange(section);
 
-      // Determine text to read based on starting word
-      let textToSpeak = section.text;
-      let charOffset = 0;
+      // Segment section by language (English, Bengali, mixed)
+      const segments = segmentSectionByLanguage(section, startWordIndex);
+      segmentsQueueRef.current = segments;
+      currentSegmentIndexRef.current = 0;
 
-      if (startWordIndex > 0 && startWordIndex < section.words.length) {
-        const startWord = section.words[startWordIndex];
-        charOffset = startWord.charStart;
-        textToSpeak = section.text.slice(charOffset);
-      }
-      charOffsetRef.current = charOffset;
-
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utteranceRef.current = utterance;
-
-      // Set voice
-      const currentVoice = voices.find((v) => v.voiceURI === selectedVoiceURI);
-      if (currentVoice) {
-        utterance.voice = currentVoice;
-      }
-
-      utterance.rate = rate;
-      utterance.pitch = pitch;
-      utterance.volume = volume;
-
-      // Word boundary event listener
-      utterance.onboundary = (event) => {
-        if (!activeSectionRef.current || activeSectionRef.current.id !== section.id) return;
-        // event.name may be 'word' or undefined depending on browser
-        const relativeCharIndex = event.charIndex || 0;
-        const totalCharIndex = charOffsetRef.current + relativeCharIndex;
-
-        const matchedWord = findWordForCharIndex(section, totalCharIndex);
-        if (matchedWord) {
-          setActiveWordId(matchedWord.id);
-          setActiveWord(matchedWord);
-          if (onWordHighlight) {
-            onWordHighlight(matchedWord, section);
-          }
-        }
-      };
-
-      utterance.onstart = () => {
-        setPlaybackState('playing');
-        startHeartbeat();
-        // Highlight the first word immediately upon starting
-        const initialWord = section.words[startWordIndex] || section.words[0];
-        if (initialWord) {
-          setActiveWordId(initialWord.id);
-          setActiveWord(initialWord);
-          if (onWordHighlight) {
-            onWordHighlight(initialWord, section);
-          }
-        }
-      };
-
-      utterance.onpause = () => {
-        setPlaybackState('paused');
-        stopHeartbeat();
-      };
-
-      utterance.onresume = () => {
-        setPlaybackState('playing');
-        startHeartbeat();
-      };
-
-      utterance.onend = () => {
-        stopHeartbeat();
-        // Check if there is a next section and autoPlay is enabled
-        if (autoPlayNext && allSectionsRef.current.length > 0) {
-          const currentIdx = allSectionsRef.current.findIndex((s) => s.id === section.id);
-          if (currentIdx !== -1 && currentIdx + 1 < allSectionsRef.current.length) {
-            const nextSec = allSectionsRef.current[currentIdx + 1];
-            // Brief timeout between sections for natural cadence
-            setTimeout(() => {
-              playSection(nextSec, 0);
-            }, 350);
-            return;
-          }
-        }
-
-        // Finished all sections or no autoplay
-        setActiveWordId(null);
-        setActiveWord(null);
-        setPlaybackState('idle');
-        if (onPlaybackFinished) {
-          onPlaybackFinished();
-        }
-      };
-
-      utterance.onerror = (event) => {
-        console.error('SpeechSynthesis error:', event);
-        stopHeartbeat();
-        if (event.error !== 'canceled' && event.error !== 'interrupted') {
-          setPlaybackState('idle');
-          setActiveWordId(null);
-          setActiveWord(null);
-        }
-      };
-
-      window.speechSynthesis.speak(utterance);
+      playNextSegment();
     },
-    [
-      voices,
-      selectedVoiceURI,
-      rate,
-      pitch,
-      volume,
-      autoPlayNext,
-      stop,
-      onWordHighlight,
-      onSectionChange,
-      onPlaybackFinished
-    ]
+    [stop, playNextSegment, onSectionChange]
   );
 
   /**
@@ -348,7 +402,6 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
         setPlaybackState('playing');
         startHeartbeat();
       } else if (currentSection) {
-        // If canceled or idle, replay from current section
         playSection(currentSection, 0);
       }
     }
@@ -395,6 +448,13 @@ export function useTTS({ onWordHighlight, onSectionChange, onPlaybackFinished } 
     voices,
     selectedVoiceURI,
     setSelectedVoiceURI,
+    preferredBanglaVoiceURI,
+    setPreferredBanglaVoiceURI,
+    preferredEnglishVoiceURI,
+    setPreferredEnglishVoiceURI,
+    autoLanguageDetect,
+    setAutoLanguageDetect,
+    activeLanguage,
     rate,
     setRate,
     pitch,
