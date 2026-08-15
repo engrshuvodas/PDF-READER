@@ -13,7 +13,18 @@ export default function App() {
   const [pdfDoc, setPdfDoc] = useState(null);
   const [fileName, setFileName] = useState('');
   const [documentStructure, setDocumentStructure] = useState(null);
-  const [zoom, setZoom] = useState(1.15);
+
+  // Dynamic initial zoom calculated based on screen width
+  const [zoom, setZoom] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const w = window.innerWidth;
+      if (w < 480) return 0.72;
+      if (w < 768) return 0.88;
+      if (w < 1024) return 1.05;
+    }
+    return 1.15;
+  });
+
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -86,6 +97,16 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Compute responsive auto-fit zoom
+  const computeFitZoom = useCallback(() => {
+    if (typeof window === 'undefined') return 1.15;
+    const screenWidth = window.innerWidth;
+    const targetDocWidth = 595.28; // Standard A4 points
+    const availableWidth = Math.min(screenWidth - 48, 860);
+    const fitScale = Math.max(0.5, Math.min(2.0, (availableWidth / targetDocWidth) * 0.95));
+    return Math.round(fitScale * 100) / 100;
+  }, []);
+
   // Load a PDF Document
   const handleLoadPdf = useCallback(
     async (source, name) => {
@@ -102,6 +123,9 @@ export default function App() {
         setDocumentStructure(structure);
         setCurrentPage(1);
 
+        // Adjust zoom to best fit screen automatically
+        setZoom(computeFitZoom());
+
         const allSections = structure.pages.flatMap((p) => p.sections);
         setDocumentSections(allSections);
 
@@ -112,7 +136,7 @@ export default function App() {
         setIsLoading(false);
       }
     },
-    [stop, setDocumentSections]
+    [stop, setDocumentSections, computeFitZoom]
   );
 
   const handleFileSelect = (file) => {
@@ -125,9 +149,9 @@ export default function App() {
     handleLoadPdf(blob, `${sampleDoc.name}.pdf`);
   };
 
-  const handleZoomIn = () => setZoom((z) => Math.min(2.5, Math.round((z + 0.15) * 100) / 100));
-  const handleZoomOut = () => setZoom((z) => Math.max(0.6, Math.round((z - 0.15) * 100) / 100));
-  const handleResetZoom = () => setZoom(1.15);
+  const handleZoomIn = () => setZoom((z) => Math.min(2.5, Math.round((z + 0.12) * 100) / 100));
+  const handleZoomOut = () => setZoom((z) => Math.max(0.45, Math.round((z - 0.12) * 100) / 100));
+  const handleResetZoom = () => setZoom(computeFitZoom());
 
   const handleWordClick = (section, wordIndex) => {
     playSection(section, wordIndex);

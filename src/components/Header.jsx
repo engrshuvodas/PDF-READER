@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FileText,
   Upload,
@@ -12,7 +12,8 @@ import {
   Moon,
   AlertCircle,
   CheckCircle2,
-  ChevronDown
+  ChevronDown,
+  Languages
 } from 'lucide-react';
 import { SAMPLE_DOCUMENTS } from '../services/samplePdfs';
 
@@ -32,51 +33,52 @@ export default function Header({
   browserSupport,
   isPlaying
 }) {
-  const [showSamplesDropdown, setShowSamplesDropdown] = React.useState(false);
+  const [showSamplesDropdown, setShowSamplesDropdown] = useState(false);
 
   return (
     <header className="app-header">
       {/* Brand & Document Info */}
       <div className="header-left">
-        <div className="app-logo">
+        <div className="app-logo" onClick={onResetZoom} title="PDF Voice Reader">
           <div className={`logo-icon-wrapper ${isPlaying ? 'pulse-anim' : ''}`}>
-            <Volume2 className="logo-icon" size={22} />
+            <Volume2 className="logo-icon" size={20} />
           </div>
           <div className="logo-text">
-            <span className="logo-title">PDF Voice Reader</span>
-            <span className="logo-badge">Karaoke TTS</span>
+            <span className="logo-title">PDF Voice</span>
+            <span className="logo-badge">বাং • EN</span>
           </div>
         </div>
 
         {fileName && (
           <div className="doc-info-badge" title={fileName}>
-            <FileText size={15} className="doc-icon" />
+            <FileText size={14} className="doc-icon" />
             <span className="doc-name">{fileName}</span>
             {pageCount > 0 && (
               <span className="doc-pages">
-                {currentPage} / {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+                {currentPage}/{pageCount}p
               </span>
             )}
           </div>
         )}
       </div>
 
-      {/* Center Controls: Upload & Samples */}
+      {/* Center Controls: Upload, Samples & Zoom */}
       <div className="header-center">
-        <button className="btn btn-primary" onClick={onUploadClick}>
-          <Upload size={16} />
-          <span>Upload PDF</span>
+        <button className="btn btn-primary btn-compact" onClick={onUploadClick} title="Upload PDF">
+          <Upload size={15} />
+          <span className="hide-on-mobile">Upload PDF</span>
         </button>
 
         <div className="dropdown-container">
           <button
-            className="btn btn-secondary dropdown-trigger"
+            className="btn btn-secondary btn-compact dropdown-trigger"
             onClick={() => setShowSamplesDropdown(!showSamplesDropdown)}
-            onBlur={() => setTimeout(() => setShowSamplesDropdown(false), 200)}
+            onBlur={() => setTimeout(() => setShowSamplesDropdown(false), 250)}
+            title="Try Demo Samples"
           >
-            <Sparkles size={16} className="text-accent" />
-            <span>Sample PDFs</span>
-            <ChevronDown size={14} className={`chevron ${showSamplesDropdown ? 'open' : ''}`} />
+            <Sparkles size={15} className="text-accent" />
+            <span className="hide-on-mobile">Samples</span>
+            <ChevronDown size={13} className={`chevron ${showSamplesDropdown ? 'open' : ''}`} />
           </button>
 
           {showSamplesDropdown && (
@@ -102,71 +104,76 @@ export default function Header({
           )}
         </div>
 
-        {/* Zoom Controls (when document is loaded) */}
+        {/* Zoom Controls (visible when document loaded) */}
         {fileName && (
-          <div className="zoom-controls">
+          <div className="zoom-controls hide-on-xs">
             <button
-              className="icon-btn"
+              className="icon-btn zoom-btn"
               onClick={onZoomOut}
-              disabled={zoom <= 0.6}
+              disabled={zoom <= 0.5}
               title="Zoom Out"
               aria-label="Zoom Out"
             >
-              <ZoomOut size={16} />
+              <ZoomOut size={14} />
             </button>
-            <span className="zoom-value" onClick={onResetZoom} title="Click to reset zoom">
+            <span className="zoom-value" onClick={onResetZoom} title="Reset zoom">
               {Math.round(zoom * 100)}%
             </span>
             <button
-              className="icon-btn"
+              className="icon-btn zoom-btn"
               onClick={onZoomIn}
               disabled={zoom >= 2.5}
               title="Zoom In"
               aria-label="Zoom In"
             >
-              <ZoomIn size={16} />
+              <ZoomIn size={14} />
             </button>
             <button
-              className="icon-btn"
+              className="icon-btn zoom-btn hide-on-sm"
               onClick={onResetZoom}
-              title="Fit standard width"
+              title="Fit Width"
               aria-label="Fit width"
             >
-              <Maximize2 size={15} />
+              <Maximize2 size={13} />
             </button>
           </div>
         )}
       </div>
 
-      {/* Right Controls: Browser Info, Settings & Theme */}
+      {/* Right Controls: Settings, Compatibility & Theme */}
       <div className="header-right">
-        {/* Browser compatibility status */}
+        {/* Browser compatibility status (Desktop & Tablet) */}
         {browserSupport && (
           <div
-            className={`browser-badge ${browserSupport.hasPreciseBoundary ? 'supported' : 'warning'}`}
+            className={`browser-badge hide-on-sm ${browserSupport.hasPreciseBoundary ? 'supported' : 'warning'}`}
             title={
               browserSupport.hasPreciseBoundary
-                ? `${browserSupport.browserName}: Precise word boundary sync active`
-                : `${browserSupport.browserName}: Boundary events may be approximate. Chrome/Edge recommended for ideal sync.`
+                ? `${browserSupport.browserName}: Precise word sync active`
+                : `${browserSupport.browserName}: Boundary events may be approximate.`
             }
           >
             {browserSupport.hasPreciseBoundary ? (
               <>
-                <CheckCircle2 size={13} />
-                <span className="badge-text">{browserSupport.browserName} Sync Ready</span>
+                <CheckCircle2 size={12} />
+                <span className="badge-text">Sync Ready</span>
               </>
             ) : (
               <>
-                <AlertCircle size={13} />
-                <span className="badge-text">Recommend Chrome</span>
+                <AlertCircle size={12} />
+                <span className="badge-text">Chrome Recommended</span>
               </>
             )}
           </div>
         )}
 
         {/* Audio / Voice Settings Modal Trigger */}
-        <button className="icon-btn" onClick={onOpenSettings} title="Voice & Speech Settings" aria-label="Settings">
-          <Sliders size={18} />
+        <button
+          className="icon-btn"
+          onClick={onOpenSettings}
+          title="Voice & Language Settings (বাংলা ও ইংরেজি)"
+          aria-label="Settings"
+        >
+          <Languages size={17} className="text-primary" />
         </button>
 
         {/* Dark / Light Theme Toggle */}
@@ -176,7 +183,7 @@ export default function Header({
           title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label="Toggle theme"
         >
-          {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
         </button>
       </div>
     </header>

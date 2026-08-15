@@ -1,13 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Volume2,
-  VolumeX,
   Play,
-  Pause,
-  AlertTriangle,
-  Sparkles,
-  ChevronUp,
-  ChevronDown
+  AlertTriangle
 } from 'lucide-react';
 import { renderPageToCanvas } from '../services/pdfService';
 
@@ -27,7 +22,6 @@ export default function PdfViewer({
   onWordClick
 }) {
   const viewerContainerRef = useRef(null);
-  const activeWordRef = useRef(null);
 
   // Auto-scroll to active word
   useEffect(() => {
@@ -72,7 +66,7 @@ export default function PdfViewer({
 }
 
 /**
- * Individual PDF Page renderer with canvas, section play overlays, and word highlight layer
+ * Individual PDF Page renderer with responsive canvas scaling, section overlays, and touch targets
  */
 function PdfPage({
   pdfDoc,
@@ -102,13 +96,10 @@ function PdfPage({
         setIsRendering(true);
         setRenderError(null);
 
-        // Cancel existing render task if scale changes rapidly
         if (renderTaskRef.current) {
           try {
             renderTaskRef.current.cancel();
-          } catch (e) {
-            // Ignore cancel error
-          }
+          } catch (e) {}
         }
 
         const page = await pdfDoc.getPage(pageInfo.pageNumber);
@@ -160,8 +151,8 @@ function PdfPage({
       {/* Scanned Image / No Text Notice */}
       {!pageInfo.hasText && (
         <div className="scanned-page-banner">
-          <AlertTriangle size={15} />
-          <span>No extractable text on this page (scanned image). TTS unavailable.</span>
+          <AlertTriangle size={14} />
+          <span>No extractable text on this page (scanned image).</span>
         </div>
       )}
 
@@ -200,7 +191,7 @@ function PdfPage({
                 height: `${section.bounds.h * 100}%`
               }}
             >
-              {/* Inline 🔊 Play Button next to Section */}
+              {/* Inline 🔊 Play Button */}
               <button
                 className={`section-play-btn ${isSectionPlaying ? 'playing' : ''} ${isSectionPaused ? 'paused' : ''}`}
                 onClick={(e) => {
@@ -218,7 +209,7 @@ function PdfPage({
                     ? 'Pause reading'
                     : isSectionPaused
                     ? 'Resume reading'
-                    : 'Read this section aloud'
+                    : 'Read section aloud'
                 }
                 aria-label="Read section"
               >
@@ -231,7 +222,7 @@ function PdfPage({
                 ) : isSectionPaused ? (
                   <Play size={13} />
                 ) : (
-                  <Volume2 size={14} />
+                  <Volume2 size={13} />
                 )}
                 <span className="play-btn-tooltip">
                   {isSectionPlaying ? 'Pause' : 'Read Section'}
@@ -261,7 +252,7 @@ function PdfPage({
                   e.stopPropagation();
                   onWordClick(section, word.index);
                 }}
-                title={`Click to read from "${word.text}"`}
+                title={`Click to read: "${word.text}"`}
               />
             );
           })
@@ -280,7 +271,6 @@ function PdfPage({
             }}
           >
             <div className="highlight-glow-backdrop"></div>
-            <div className="highlight-cursor-dot"></div>
           </div>
         )}
       </div>
